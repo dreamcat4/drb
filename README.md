@@ -1,9 +1,57 @@
+## Dreamcat's build tool
 
-## Dreamcat's build tool - "drb"
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+ 
 
-Dreamcat's builder. A simple shell-based build tool.
+  - [Introduction](#introduction)
+  - [Requirements](#requirements)
+  - [Build targets](#build-targets)
+  - [Installation](#installation)
+  - [CmdLine Args](#cmdline-args)
+  - [Todo](#todo)
+- [Downloading build targets](#downloading-build-targets)
+- [Usage](#usage)
+  - [Check apt dependancies](#check-apt-dependancies)
+  - [Perform all build actions in one step](#perform-all-build-actions-in-one-step)
+  - [Hacking a custom build, hacking as-you-go](#hacking-a-custom-build-hacking-as-you-go)
+  - [Cleaning](#cleaning)
 
-This tool is written in shell, to be run ubuntu. It has been created to make easier cross-compile and build OS disk images for embedded arm hardware platforms such as rpi2, odroid-c1, etc. However `drb` is a reasonably generic build tool and may be used instead in some situations instead of `make`.
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+### Introduction
+
+Dreamcat's build tool. A simple shell-based build tool.
+
+This tool has been created as a wrapper to run drb build targets. To download, compile and build OS disk images for embedded arm hardware platforms. Such as rpi2, odroid-c1, etc.
+
+***Rationale:***
+
+> "Because we do not want to go through some complex build proceedure, just to apply a kernel patch."
+
+What makes the `drb` program *useful* is that it's build targets are constructed of generic `sh` shell script. Split into a few coarse build stages. Any arbitrary shell commands can be used implement the fetch, build etc. With just enough minimum flexibility so that ordinary users can modify their build with simple tweaks / patches etc. And no fuss.
+
+By sticking *entirely to generic shell script, with a very lightweight API structure around that*. This allows us to *very rapidly convert and transfer* those pre-existing and already-established community build proceedures, into becoming Drb build targets. *Whilst with a lowest possible barrier of entry to community members* to re-write their existing shell-based build scripts into the simple Drb API format.
+
+***History:***
+
+Drb was brought into existence specifically for the Odroid-C1 user community. Actually, it was originally named "odroid-c1-builder". However it may eventually prove to be of some questionable value in other similar sibiling communities. Such as for odroid-*, rpi2, andso on. With this in mind, `ocb` has been renamed to `drb`. And is now an entirely generic build tool. Which is seperately managed any odroid code. All odroid-c1 specific (or other such platform) are implemented within the build targets. Which is a plugin architecture.
+
+***Note:***
+
+On the surface, this tool looks similar to `buildroot`. However Drb was never designed to compete with `buildroot` or any of it's other more heavyweight equivalents such as `make`, `yocto`, and `gradle`. That is not Drb's role in the user community context. But rather, Dreamcat's Builder is just meant to be a unified top layer. A wrapper. All is uniformly scripted, and encapsulated behind `drb`'s much simpler, more user-friendly interface.
+
+If you don't already need `drb`, or don't understand what it is for... then don't use it! Most of the value of the `drb` tool is in it's community oriented build targets. Which are very community-driven and community specific. For a good general purpose build tool, I recommend GNU make.
+
+### Requirements
+
+* Ubuntu 14.04 or higher
+* To use `drb` on other linux host distros, you should just run it inside of a docker image.
+* Build dependancies from 3rd party PPAs are not supported ATM.
+
+The only requirement of drb is that it should be run on an ubuntu host system. This simplifies the testing of build dependancies, when all targets are written and tested on ubuntu hosts. This choice makes for simplest management of build dependancies, relying upon `apt-get` tool.
+
+* If you do wish to port the drb tool to some non-linux platform, e.g. FreeBSD. Then you will need to modify the code around `apt_depends`.
 
 ### Build targets
 
@@ -24,9 +72,12 @@ Build targets can be downloaded from online sources with one of the provided gen
 Git clone from master branch
 
 ```sh
-git clone https://github.com/dreamcat4/drb
+# Download drb
+git clone https://github.com/dreamcat4/drb && cd drb
+
+# Add the 'drb' executable to your $PATH
 sudo mkdir -p /usr/local/bin
-cd drb && sudo ln -s $PWD/usr/bin/drb /usr/local/bin/
+sudo ln -s $PWD/usr/bin/drb /usr/local/bin/
 ```
 
 From my launchpad PPA: ! `.deb` pkg does not exist yet
@@ -38,6 +89,43 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 ### CmdLine Args
 
+```sh
+ drb:
+      Dreamcat\'s builder. A simple shell-based build tool.
+      'man drb' for more help / information.
+
+ Usage:
+      $ drb <cmds> [platforms] [--] [targets]
+
+ Commands:
+
+      !targets    - List available build targets
+      !configure  - Configure per-target options.
+      !check      - Check a target is valid and meets drb API spec.
+      !info       - Show metadata info about specific targets
+      select     - Set a build alias to point to a different target
+      depends    - Check depenancies. Install missing packages.
+      fetch      - Download source code required to build target images
+      sync       - Update fetched source code to the latest version
+      build      - Cross-compile target operating systems
+      image      - Make disk images from compiled operating systems
+      clean      - Remove build files
+      distclean  - Remove build files + src files
+
+ Platforms:
+      Hardware platform(s) you wish to build targets for.
+      Targets you build must include support for those platform(s).
+      e.g. 'c1', 'u3', 'xu3' etc. Not all targets support all platforms.
+
+ Targets:
+
+      -x,--debug     - Print full command trace with set -x
+      -v,--version   - Print the current version of drb and exit.
+      -h,--help      - Display this message and exit.
+
+ Version:
+      0.01 pre-alpha
+```
 
 ### Todo
 
@@ -63,25 +151,27 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 
 
-## Installation
+## Downloading build targets
+
+! not implemented yet
 
 ```sh
-# Download drb
-git clone git@github.com:dreamcat4/odroid-c1-builder.git ~/drb
+# List the available target sets that come pre-installed with drb
+drb targets
 
-# Add the 'drb' executable to your $PATH
-PATH="${PATH}:${HOME}/drb/usr/bin/drb"
+# Download the latest version of the available official targets
+drb sync c1-targets
 
-# Download the latest version of default targets
-drb sync default-targets
+# Or to configure alternative build targets from your own repos:
+cp -Rf /usr/share/drb/targets/default/c1-targets ~/.drb/target/my-targets
+nano ~/.drb/target/my-targets/config.default
 
-# Or you can download alternative build targets from non-default
-# repo online sources, by editing: '~/.drb/config/user.config'
+# Then
+drb sync my-targets
 
-# List available build targets
+# List again the available build targets
 drb targets
 ```
-
 
 ## Usage
 
