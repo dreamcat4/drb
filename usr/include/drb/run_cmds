@@ -1,0 +1,165 @@
+#!/bin/bash
+
+_register_platforms ()
+{
+  new_platforms="$*"
+  platforms_file="${drb_conf_root}/config/${_drb_known_plats_file}"
+  existing_platforms="$(cat "$platforms_file")"
+
+  echo $existing_platforms $new_platforms | \
+    tr -s [:space:] \\n | sort | uniq > "$platforms_file"
+
+  drb_known_platforms="$(cat "$platforms_file")"
+}
+
+_run_cmd_for ()
+{
+  _run_cmd "$@"
+}
+
+_run_cmd ()
+{
+  cmd="$1"
+  tgt="$2"
+  plats="$3"
+  [ "$plats" ] || plats="$_platforms"
+  plats="$_drb_platform_generic $plats"
+
+  # push stack
+  [ "$codename" ] && _old_codenames="$codename $_old_codenames"
+
+  for p in $plats; do
+    _real_target_for "$tgt" "$p" > /dev/null
+    tgt="$real_target"
+
+    _target_dir_for "$tgt" "$p" > /dev/null
+
+    impl_file="${target_dir}/${_drb_impl_file}"
+    if [ ! -e "$impl_file" ]; then
+      echo "error: Missing file \"$impl_file\", required by target \"$tgt\""
+      exit 1
+    fi
+
+    unset $_drb_api_vars $_drb_api_cmds
+    . "$impl_file"
+
+    [ "$codename" ] || _lookup_codename_for "$tgt" "$p"
+
+    if [ "$p" = "$_drb_platform_generic" ]; then
+      unset p _p p_
+    else
+      _p="_${p}"
+      p_="${p}_"
+    fi
+
+    if [ -e "${drb_build_root}/.completed/${cmd}.${tgt}" ]; then
+      echo "skipping: $cmd $tgt - already completed."
+      return 0
+    fi
+
+    _load_config_for "$tgt" "$p"
+
+    if [ ! "$(eval "command -v ${cmd}_${codename}${_p}")" ]; then
+      echo "skipping: $cmd $tgt - not implemented."
+      return 0
+    fi
+
+    for path in src build image; do
+      eval "${path}_dir=\"\$${path}_dir_${codename}${_p}\""
+    done
+
+    case "$_cmd" in
+      fetch|sync)
+        mkdir -p "$src_dir" && cd "$src_dir"     || return 1
+        ;;
+      build)
+        mkdir -p "$build_dir" && cd "$build_dir" || return 1
+        ;;
+      image)
+        mkdir -p "$image_dir" && cd "$image_dir" || return 1
+        ;;
+    esac
+
+    eval "${cmd}_${codename}${_p}";
+    retval="$?"
+
+    if [ "$retval" -eq 0 ]; then
+      touch "${drb_build_root}/.completed/${cmd}.${tgt}${_p}"
+      echo "command: $cmd $tgt - completed successfully."
+    else
+      echo "error: failed to $cmd target \"$tgt\"" && exit "$retval"
+    fi
+  done
+
+  # pop 1 level
+  set -- $_old_codenames
+  if [ "$1" ]; then
+    codename="$1"
+    for path in src build image; do
+      eval "${path}_dir=\"\$${path}_dir_${codename}${_p}\""
+    done
+  fi
+  shift
+  _old_codenames="$@"
+}
+
+_run_chain ()
+{
+  last_cmd="$1"
+  tgt="$2"
+  tgt="$(_hard_expand_target "$tgt")"
+
+  for __cmd in fetch sync build image; do
+    _run_cmd "$__cmd" "$tgt"
+    [ "$__cmd" = "$last_cmd" ] && break
+  done
+}
+
+_run_cmds ()
+{
+  cmds_to_run="$*"
+
+  if echo "$cmds_to_run" | grep -q "depends\|fetch\|sync\|build\|image"; then
+    for tgt in $loaded_targets; do
+      _check_apt_depends "$tgt"
+    done
+  fi
+
+  if [ "$_apt_depends_error" ]; then
+    echo "To install missing dependancies, run:"
+    echo "  sudo apt-get install ${all_missing_pkgs# }"
+    exit 1
+  fi
+
+  for _cmd in $cmds_to_run; do
+    for tgt in $_tgts; do
+      case "$_cmd" in
+        select)
+          _select_target "$tgt"
+          continue
+        ;;
+        clean)
+          _clean_target "$tgt"
+          continue
+        ;;
+        distclean)
+          _distclean_target "$tgt"
+          continue
+        ;;
+      esac
+    done
+  done
+
+  for _cmd in $cmds_to_run; do
+    [ "$_targets_updated" ] && echo "warning: Some commands not run. Please try again without \"drb select\" to finish remaining actions." && exit 1
+
+    for tgt in $tgts_resolved; do
+      case "$_cmd" in
+        fetch|sync|build|image)
+          _run_chain "$_cmd" "$tgt"
+          continue
+        ;;
+      esac
+    done
+  done
+}

@@ -1,0 +1,47 @@
+#!/bin/bash
+
+target_depends ()
+{
+  target_depends="$target_depends $*"
+}
+
+apt_depends ()
+{
+  apt_depends="$apt_depends $*"
+}
+
+
+# api methods
+_api_run_cmd ()
+{
+  this_cmd="$1"
+  shift
+  these_targets="$*"
+
+  for this_tgt in $these_targets; do
+    _run_chain "$this_cmd" "$this_tgt"
+  done
+}
+
+fetch ()
+{
+  _api_run_cmd "fetch" "$@"
+}
+
+sync ()
+{
+  _api_run_cmd "sync" "$@"
+}
+
+build ()
+{
+  _api_run_cmd "build" "$@"
+}
+
+image ()
+{
+  _api_run_cmd "image" "$@"
+}
+
+
+

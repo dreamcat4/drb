@@ -1,0 +1,125 @@
+#!/bin/bash
+
+_drb_uid=$(id -u)
+
+_drb_search_paths ()
+{
+  if [ $_drb_uid = 0 ]; then
+    unset _utsp _ucsp
+  else
+    _utsp="$HOME/.drb/targets"
+    _ucsp="$HOME/.drb/config"
+  fi
+
+  _target_search_paths="${_drb_root%/}/usr/share/drb/targets ${_drb_root%/}/etc/drb/targets $_utsp $drb_target_search_paths"
+  _config_search_paths="${_drb_root%/}/usr/share/drb/config ${_drb_root%/}/etc/drb/config  $_ucsp $drb_config_search_paths"
+}
+
+_load_configs_in ()
+{
+  conf_path="$1"
+  conf_prefix="$2"
+
+  if [ "$conf_prefix" ]; then
+    conf_prefix="${conf_prefix}\.config"
+  else
+    conf_prefix="config"
+  fi
+
+  if [ -d "$conf_path" ]; then
+    default_configs="$(find "$conf_path" -type f -regex ".*/${conf_prefix}\.default\..*\|.*/${conf_prefix}\.[^\.]*ample")"
+    for default_config in $default_configs; do
+      . "$default_config"
+    done
+
+    user_configs="$(find "$config_path" -type f -regex ".*/${conf_prefix}.*" -not -regex ".*/${conf_prefix}\.default\..*\|.*/${conf_prefix}\.[^\.]*ample")"
+    for user_config in $user_configs; do
+      . "$user_config"
+    done
+  fi
+}
+
+_load_config_for ()
+{
+  _conf_prefix="$1"
+  platforms="$2"
+  [ "$platforms" ] || platforms="$_platforms"
+
+  [ "$vars" ] && unset $vars
+
+  if is_target "$_conf_prefix"; then
+    for p in $platforms; do
+	    _target_dir_for "$_conf_prefix" "$p" > /dev/null
+	    if [ "$target_dir" ]; then
+		    _load_configs_in "$target_dir"
+	      _load_configs_in "$target_dir" "$p"
+	    fi
+    done
+  fi
+
+  for config_path in $_config_search_paths; do
+    _load_configs_in "$config_path" "$_conf_prefix"
+
+    for p in $platforms; do
+      _load_configs_in "$config_path" "${_conf_prefix}\.${p}"
+    done
+  done
+
+  [ "$codename" ] && for var in $vars; do
+    eval "${codename}_${var}=\"\$$var\""
+  done
+}
+
+
+_drb_load_global_config ()
+{
+  vars="default_targets builder_root src_root build_root image_root target_search_paths config_search_paths"
+  codename="drb"
+  _load_config_for "drb"
+}
+
+
+_drb_ensure_default_config ()
+{
+  # If not set by user, set default config values
+  [ "$drb_editor" ] || drb_editor="$EDITOR"
+  [ "$drb_editor" = "true" ]  && drb_editor="$EDITOR"
+  [ "$drb_editor" = "false" ] && drb_editor=""
+
+  [ "$drb_default_platforms" ] || drb_default_platforms="c1"
+  [ "$drb_default_targets" ]   || drb_default_targets="ubuntu android openelec"
+
+    if [ $_drb_uid = 0 ]; then
+      [ "$drb_conf_root" ]    || drb_conf_root="${_drb_root}/etc/drb"
+      [ "$drb_builder_root" ] || drb_builder_root="${_drb_root}/var/lib/drb"
+
+    else
+      [ "$drb_conf_root" ]    || drb_conf_root="${HOME}/.drb"
+      [ "$drb_builder_root" ] || drb_builder_root="${HOME}/.drb"
+      mkdir -p "${HOME}/.drb/config" "${HOME}/.drb/targets"
+      [ -e "${HOME}/.drb/config/drb.config.example" ] || cp "${_drb_root}/etc/drb/config/drb.config.example" "${HOME}/.drb/config/drb.config.example"
+      [ -e "${HOME}/.drb/config/drb.config" ] || cp "${_drb_root}/etc/drb/config/drb.config.example" "${HOME}/.drb/config/drb.config"
+    fi
+
+  [ "$drb_src_root" ]   || drb_src_root="${drb_builder_root}/src"
+  [ "$drb_build_root" ] || drb_build_root="${drb_builder_root}/build"
+  [ "$drb_image_root" ] || drb_image_root="${drb_builder_root}/images"
+
+  mkdir -p "$drb_builder_root/.completed" "$drb_src_root" "$drb_build_root" "$drb_image_root"
+}
+
+
+_drb_load_platforms ()
+{
+  for config_path in $_config_search_paths; do
+    platforms_file="${config_path}/.platforms"
+    [ -f "${config_path}/.platforms" ] || continue
+    for p in $(cat "$platforms_file"); do
+      if ! echo "$drb_known_platforms" | grep -q -x "$p"; then
+        drb_known_platforms="$drb_known_platforms
+$p"
+      fi
+    done
+  done
+}
+

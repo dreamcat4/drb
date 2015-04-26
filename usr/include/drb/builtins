@@ -1,0 +1,187 @@
+#!/bin/bash
+
+_in_select ()
+{
+  [ "$new_tgt" = "CANCEL" ] && break
+  if [ "$_delete" ] && [ "$new_tgt" = "$_delete" ]; then
+    _target_dir "$tgt_alias" > /dev/null
+    rm "$target_dir"
+    break
+  fi
+
+  for target_search_path in $(echo $_target_search_paths|tr ' ' '\n'|tac|tr '\n' ' '); do
+    _target_dir "$new_tgt" > /dev/null
+    ln -sf "$target_dir" "${target_search_path}/${tgt_alias}"
+    _targets_updated=true
+    echo "Target \"$tgt_alias\" updated."
+    echo ""
+    break
+  done
+}
+
+_select_target ()
+{
+  tgt_alias="$*"
+  if echo "$_targets" | grep -q -x "$tgt_alias"; then
+    _target_dir "$tgt_alias" > /dev/null
+
+    if [ "$target_dir" ]; then
+      if [ ! -h "$target_dir" ]; then
+        echo "error: alias name \"$tgt_alias\" maps to a real file or directory. Cannot continue."
+        exit 1
+      fi
+
+      old_target_dir="$(realpath "$target_dir")"
+      old_target="$(basename "$old_target_dir")"
+      echo " Old target: $old_target"
+      echo "   Location: $old_target_dir"
+      _delete="Delete alias \"$tgt_alias\""
+    fi
+  fi
+
+  # find list of matching targets
+  tgts="$(_match_targets $tgt_alias)"
+  echo ""
+  # if no matching targets - then list all targets
+  [ "$tgts" ] || tgts="$_targets"
+  if [ ! "$tgts" ]; then
+    echo "error: No targets to select from."
+    exit 1
+  fi
+
+  tgts="$(echo "$tgts" | grep -v -x -F "$tgt_alias")"
+
+  echo "Select target for alias \"$tgt_alias\":"
+  echo ""
+  if [ "$_delete" ]; then
+    select new_tgt in $tgts "$_delete" CANCEL; do
+      _in_select
+      break
+    done
+  else
+    select new_tgt in $tgts CANCEL; do
+      _in_select
+      break
+    done
+  fi
+}
+
+_check_apt_depends()
+{
+  tgt="$1"
+  codename="$(_lookup_codename "$tgt")"
+  apt_depends="$(eval "echo \$apt_depends_${codename}")"
+  [ "$apt_depends" ] || return 0
+
+  installed_pkgs=$(dpkg --get-selections | grep -e '.*[[:space:]]*install$' | sed -e 's/[[:space:]].*//g')
+  missing_pkgs=$(echo "$depends" | grep -v -x -F "$installed_pkgs")
+
+  if [ "$missing_pkgs" ]; then
+    echo "Target: $tgt"
+    echo "error: Dependancies for target \"$tgt\" are not met. Missing packages: $missing_pkgs"
+    echo ""
+    all_missing_pkgs="$all_missing_pkgs $missing_pkgs"
+    _apt_depends_error=true
+    return 1
+  else
+    return 0
+  fi
+}
+
+_clean_target ()
+{
+  tgt="$1"
+  plats="$2"
+  [ "$plats" ] || plats="$_platforms"
+  plats="$_drb_platform_generic $plats"
+
+  for p in $plats; do
+    _real_target_for "$tgt" "$p" > /dev/null
+    tgt="$real_target"
+
+    codename="$(_lookup_codename_for "$tgt" "$p")"
+    _real_target "$tgt" > /dev/null
+
+    if [ "$p" = "$_drb_platform_generic" ]; then
+      unset p _p p_
+    else
+      _p="_${p}"
+      p_="${p}_"
+    fi
+
+    if [ "$(eval "command -v clean_${codename}${_p}")" ]; then
+      eval "clean_${codename}${_p}";
+      retval="$?"
+
+      if [ $retval -ne 0]; then
+        echo "error: failed to clean target \"$tgt\""
+        exit "$retval"
+      fi
+    fi
+
+    for such_cmd in build image; do
+      rm -f "${drb_build_root}/.completed/${such_cmd}.${real_target}${_p}"
+    done
+
+    for path in build out; do
+      pdc_var="$(eval "echo \"\$${path}_root_${codename}${_p}\"")"
+      [ "$pdc_var" ] || eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\""
+      if ! rm -Rf "$pdc_var"; then
+        echo "error: failed to clean target \"$tgt\""
+        exit 1
+      fi
+    done
+  done
+}
+
+_distclean_target ()
+{
+  tgt="$1"
+  plats="$2"
+  [ "$plats" ] || plats="$_platforms"
+  plats="$_drb_platform_generic $plats"
+
+  _clean_target "$tgt"
+
+  for p in $plats; do
+    _real_target_for "$tgt" "$p" > /dev/null
+    tgt="$real_target"
+
+    codename="$(_lookup_codename_for "$tgt" "$p")"
+    _real_target "$tgt" > /dev/null
+
+    if [ "$p" = "$_drb_platform_generic" ]; then
+      unset p _p p_
+    else
+      _p="_${p}"
+      p_="${p}_"
+    fi
+
+    if [ "$(eval "command -v distclean_${codename}${_p}")" ]; then
+      eval "clean_${codename}${_p}";
+      retval="$?"
+
+      if [ $retval -ne 0]; then
+        echo "error: failed to clean target \"$tgt\""
+        exit "$retval"
+      fi
+    fi
+
+    for such_cmd in fetch sync; do
+      rm -f "${drb_build_root}/.completed/${such_cmd}.${real_target}${_p}"
+    done
+
+    for path in src; do
+      pdc_var="$(eval "echo \"\$${path}_root_${codename}${_p}\"")"
+      [ "$pdc_var" ] || eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\""
+      if ! rm -Rf "$pdc_var"; then
+        echo "error: failed to clean target \"$tgt\""
+        exit 1
+      fi
+    done
+  done
+}
+
+
+
+

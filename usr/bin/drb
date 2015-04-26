@@ -1,0 +1,165 @@
+#!/bin/bash
+__this_file="`realpath -q "$0"`"
+__this_dir=`dirname "$__this_file"`
+
+# immutable globals
+_drb_version="0.01 pre-alpha"
+_drb_root="$(realpath ${__this_dir}/../..)"
+_drb_include="${_drb_root}/usr/include/drb"
+_drb_known_plats_file=".platforms"
+_drb_target_platforms_file="supported.platforms"
+_drb_platform_generic="drb_platform_generic"
+_drb_impl_file="target.sh"
+_drb_api_vars="codename platforms target_depends apt_depends src_dir build_dir out_dir"
+_drb_common_cmds="fetch
+sync
+build
+image
+clean
+distclean"
+_drb_supported_cmds="select
+depends
+$_drb_common_cmds"
+_drb_api_cmds="apt_depends
+target_depends
+setup
+$_drb_common_cmds"
+
+# Source include files
+. "${_drb_include}/config"
+. "${_drb_include}/resolve_targets"
+. "${_drb_include}/builtins"
+. "${_drb_include}/run_cmds"
+
+
+_drb_cat_help ()
+{
+  cat <<- "EOF"
+
+ drb:
+      Dreamcat\'s builder. A simple shell-based build tool.
+      'man drb' for more help / information.
+
+ Usage:
+      $ drb <cmds> [platforms] [--] [targets]
+
+ Commands:
+
+      !targets    - List available build targets
+      !configure  - Configure per-target options.
+      !check      - Check a target is valid and meets drb API spec.
+      !info       - Show metadata info about specific targets
+      select     - Set a build alias to point to a different target
+      depends    - Check depenancies. Install missing packages.
+      fetch      - Download source code required to build target images
+      sync       - Update fetched source code to the latest version
+      build      - Cross-compile target operating systems
+      image      - Make disk images from compiled operating systems
+      clean      - Remove build files
+      distclean  - Remove build files + src files
+
+ Platforms:
+      Hardware platform(s) you wish to build targets for.
+      Targets you build must include support for those platform(s).
+      e.g. 'c1', 'u3', 'xu3' etc. Not all targets support all platforms.
+
+ Targets:
+
+      -x,--debug     - Print full command trace with set -x
+      -v,--version   - Print the current version of drb and exit.
+      -h,--help      - Display this message and exit.
+
+EOF
+
+  echo " Version:"
+  printf "      "
+  echo $_drb_version;
+}
+
+
+_drb_parse_args ()
+{
+  # known_platforms="c1 u3 xu3 $drb_extra_platforms"
+  # known_platforms="c1 u3 xu3 $drb_additional_platforms"
+  known_platforms="c1 u3 xu3 $drb_other_platforms"
+
+  _parse_cmds=true
+
+  if [ "$#" -gt "0" ]; then
+    for arg in "$@"; do
+      case "$arg" in
+
+        -v|--version)
+          echo "Dreamcat's Builder - version ${_drb_version}."
+          exit 1
+        ;;
+
+        -h|--help)
+          _drb_cat_help
+          exit 1
+        ;;
+
+        -x|--debug)
+          set -x
+        ;;
+
+        --)
+          unset _parse_cmds
+          unset _parse_platforms
+        ;;
+
+        --echo)
+          _cmd_echo=true
+          break
+        ;;
+
+        -p|--platforms)
+          _set_platforms=true
+        ;;
+
+        *)
+          if [ "$_parse_cmds" ] && echo "$_drb_supported_cmds" | grep -q -x "$arg"; then
+            _cmds="$_cmds $arg"
+          else
+            unset _parse_cmds
+            _parse_platforms=true
+          fi
+
+          if [ "$_parse_platforms" ] && echo "$drb_known_platforms" | grep -q -x "$arg"; then
+            _platforms="$_platforms $arg"
+          else
+            unset _parse_platforms
+            echo "$arg" | grep ' ' && echo "error: spaces not allowed in target names. User '-' or '_' instead." && exit 1
+            _tgts="$_tgts $arg"
+          fi
+        ;;
+      esac
+    done
+  else
+    _drb_cat_help;
+    exit 1;
+  fi
+}
+
+_drb_main ()
+{
+  _drb_search_paths;
+  _drb_load_platforms;
+  _drb_load_global_config;
+  _drb_ensure_default_config;
+  _drb_parse_args "$@" # Y
+  _resolve_targets "$_tgts"; # Y
+
+  if [ "$_cmd_echo" ]; then
+    eval "echo \"\$$arg\""
+    exit 0
+  fi
+
+  _run_cmds "$_cmds"; # Y
+}
+
+# Pass the command through our wrapper function
+_drb_main "$@"
+exit "$?"
+
+

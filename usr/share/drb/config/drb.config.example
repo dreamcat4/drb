@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# -------------------------------------
+# drb global settings / configuration
+# -------------------------------------
+
+
+# The default text editor to invoke for 'drb configure' command. Set to 'false' to disable.
+# drb_editor="$EDITOR"
+
+
+# Always build for these default platforms whenever no [--platforms] are specified on the cmd line
+# drb_default_platforms="c1"
+
+
+# Always build these default targets whenever no [targets] are specified on the cmdline
+# drb_default_targets="ubuntu android openelec"
+
+
+# Root folder of all source code, build intermediate files and output image files
+# drb_builder_root="/var/lib/drb" # for root user
+# drb_builder_root="${HOME}/.drb" # for all other users
+
+
+# Folder for the source code of all targets
+# drb_src_root="${drb_builder_root}/src"
+
+
+# Folder for the intermediate build files of all targets
+# drb_build_root="${drb_builder_root}/build"
+
+
+# Folder for the output image files of all targets
+# drb_image_root="${drb_builder_root}/images"
+
+
+# Extra user directories to search for targets, in addition to /etc/drb/targets and ~/.drb/targets
+# drb_target_search_paths=""
+
+
+# Extra user directories to search for config, in addition to /etc/drb/config and ~/.drb/config
+# drb_config_search_paths=""
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,335 @@
+#!/bin/bash
+
+_target_unique ()
+{
+  ! _is_target "$1"
+}
+
+_target_unique_for ()
+{
+  ! _is_target_for "$1" "$2"
+}
+
+_is_target ()
+{
+  this_tgt="$1"
+  echo "$_targets" | grep -q -x "$this_tgt"
+}
+
+_is_target_for ()
+{
+  this_tgt="$1"
+  this_plat="$2"
+  eval "echo \"\$_${this_plat}_targets\"" | grep -q -x "$this_tgt"
+}
+
+_target_dir ()
+{
+	this_tgt="$1"
+  target_dir="$(echo $_targets_plats_dirs | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
+  echo "$target_dir"
+}
+
+_target_dir_for ()
+{
+  this_tgt="$1"
+  this_platform="$2"
+  [ "$this_platform" ] || this_platform="$_drb_platform_generic"
+  target_dir="$(echo $_targets_plats_dirs | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g')"
+  echo "$target_dir"
+}
+
+_real_target_for ()
+{
+  # expand alias name --> target name
+  this_tgt="$1"
+  this_platform="$2"
+  [ "$this_platform" ] || this_platform="$_drb_platform_generic"
+
+  _target_dir_for "$this_tgt" "$this_platform" > /dev/null
+  if [ "$target_dir" ]; then
+    real_path="$(realpath "$target_dir")"
+    real_target="$(basename "$real_path")"
+  else
+    real_target="$this_tgt"
+  fi
+  echo "$real_target"
+}
+
+_real_target ()
+{
+  # expand alias name --> target name
+  this_tgt="$1"
+  _target_dir "$this_tgt" > /dev/null
+  if [ "$target_dir" ]; then
+	  real_path="$(realpath "$target_dir")"
+	  real_target="$(basename "$real_path")"
+  else
+	  real_target="$this_tgt"
+  fi
+  echo "$real_target"
+}
+
+_match_targets ()
+{
+  str="$1"
+  tgts="$(echo "$_targets" | grep "$str")"
+  tgts="$(echo "$tgts" | grep -v -x "$str")"
+  echo "$tgts"
+}
+
+_codename_unique ()
+{
+  codename="$1"
+  echo "$_codenames" | grep -q -v -x "$codename"
+}
+
+_lookup_codename ()
+{
+  this_tgt="$1"
+  codename="$(echo $_targets_codenames | grep --max-count=1 "${this_tgt}:") | sed -e 's/^.*://g'"
+  echo "$codename"
+}
+
+_lookup_codename_for ()
+{
+  this_tgt="$1"
+  this_platform="$2"
+  [ "$this_platform" ] || this_platform="$_drb_platform_generic"
+
+  codename="$(echo $_targets_plats_codenames | grep --max-count=1 "${this_tgt}:${this_platform}") | sed -e 's/^.*://g'"
+  echo "$codename"
+}
+
+_find_targets_recurse ()
+{
+  tgt_dir="$1"
+  unset tgt_platforms
+
+  # push stack
+  _old_tgt_dirs="$tgt_dir $_old_tgt_dirs"
+
+  plats_file="${tgt_dir}/${_drb_known_plats_file}"
+  if [ -f "$plats_file" ]; then
+    found_platforms="$found_platforms
+$(cat "$plats_file")"
+  fi
+
+  impl_file="${tgt_dir}/${_drb_impl_file}"
+  if [ -f "$impl_file" ]; then
+    plats_file="${tgt_dir}/${_drb_target_platforms_file}"
+    if [ -f "$plats_file" ]; then
+      tgt_platforms="$(cat "$plats_file")"
+      found_platforms="$found_platforms
+$tgt_platforms"
+    fi
+
+    tgt="$(basename "$tgt_dir")"
+    _target_unique "$tgt" && _targets="$_targets
+$tgt"
+
+    _targets_dirs="${tgt}:${tgt_dir}
+$_targets_dirs"
+
+    if ! echo "$tgt_platforms" | grep -q -E "[^[[:space:]]]*"; then
+      tgt_platforms="$_drb_platform_generic"
+    fi
+
+    for p in $tgt_platforms; do
+      _target_unique_for "$tgt" "$p" && \
+        eval "_${this_plat}_targets=\"\$_${this_plat}_targets
+$tgt\""
+
+#       eval "_${this_plat}_targets_dirs=\"${tgt}:${tgt_dir}
+# \$_${this_plat}_targets_dirs\""
+
+      _targets_plats_dirs="${tgt}:${p}:${tgt_dir}
+$_targets_plats_dirs"
+    done
+
+  fi
+
+  for tgt in $(ls $tgt_dir); do
+    td="${tgt_dir}/${tgt}"
+    [ -d "$td" ] || continue
+    _find_targets_recurse "$td"
+  done
+
+  # pop stack
+  set -- $_old_tgt_dirs
+  [ "$1" ] && tgt_dir="$1" ; shift
+  _old_tgt_dirs="$@"
+}
+
+_find_targets ()
+{
+  for tgt_dir in $_target_search_paths; do
+    [ -d "$tgt_dir" ] && _find_targets_recurse "$tgt_dir"
+  done
+  [ "$found_platforms" ] && _register_platforms "$found_platforms"
+}
+
+
+_soft_expand_target ()
+{
+  str="$1"
+  tgt="$(echo "$_targets" | grep -x "$str")"
+  [ "$tgt" ] || tgt="$(echo "$_targets" | grep --max-count=1 "$str")"
+  echo "$tgt"
+}
+
+_hard_expand_target ()
+{
+  str="$1"
+  tgt="$(_soft_expand_target "$str")"
+  if [ ! "$tgt" ]; then
+  	echo "error: target \"str\" did not match any known targets."
+  	exit 1
+  fi
+  echo "$tgt"
+}
+
+_run_cmd_codename ()
+{
+  if [ ! "$(eval "command -v ${cmd}_${codename}")" ]; then
+    # echo "skipping: $cmd $tgt - not implemented."
+    return 1
+  fi
+
+  eval "${cmd}_${codename}"
+}
+
+_run_api_cmd ()
+{
+  if [ ! "$(eval "command -v ${cmd}")" ]; then
+    # echo "skipping: $cmd $tgt - not implemented."
+    return 1
+  fi
+
+  eval "${cmd}_${codename}"
+}
+
+_copy_function() {
+    declare -F $1 > /dev/null || return 1
+    eval "$(echo "${2}()"; declare -f ${1} | tail -n +2)"
+}
+
+_load_target ()
+{
+  tgt="$1"
+  plats="$2"
+  [ "$plats" ] || plats="$_platforms"
+  plats="$_drb_platform_generic $plats"
+  generated_codename="$(mktemp -u tgt_XXXXXX)"
+
+  for p in $plats; do
+    _real_target_for "$tgt" "$p" > /dev/null
+    tgt="$real_target"
+
+    _target_dir_for "$tgt" "$p" > /dev/null
+    echo "$loaded_target_dirs" | grep -q -x "$target_dir" && continue
+
+    impl_file="${target_dir}/${_drb_impl_file}"
+    if [ ! -e "$impl_file" ]; then
+      echo "error: Missing file \"$impl_file\", required by target \"$tgt\""
+      exit 1
+    fi
+
+    loaded_target_dirs="$loaded_target_dirs
+ $target_dir"
+
+    unset $_drb_api_vars $_drb_api_cmds
+    . "$impl_file"
+
+    [ "$codename" ] || codename="$code_name"
+    # [ "$codename" ] || codename="$(mktemp -u tgt_XXXXXX)" # different tgt codename for each platform
+    [ "$codename" ] || codename="$generated_codename" # same tgt codename for all platforms
+    _codename_unique && _codenames="$_codenames
+$codename"
+
+    _targets_plats_codenames="${tgt}:${p}:${codename}
+$_target_plats_codenames"
+
+    if [ "$p" = "$_drb_platform_generic" ]; then
+      unset p _p p_
+    else
+      _p="_${p}"
+      p_="${p}_"
+    fi
+
+    for var in $_drb_api_vars; do
+      eval "${var}_${codename}${_p}=\"\$${var}${_p}\""
+    done
+
+    for api_func in $_drb_api_cmds; do
+      _copy_function "$api_func" "${api_func}_${codename}${_p}"
+    done
+
+    for api_func in setup apt_depends target_depends; do
+      _run_api_cmd "${api_func}_${codename}${_p}"
+    done
+
+    for path in src build image; do
+      pdc_var="$(eval "echo \"\$${path}_dir_${codename}${_p}\"")"
+
+      if [ ! "$pdc_var" ]; then
+        eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\"
+${path}_dir_${codename}${_p}=\"$pdc_var\""
+      fi
+
+      if [ "$pdc_var" = "${pdc_var#/}" ]; then
+        # if not a full path starting in '/', then:
+        eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}/${pdc_var}\"
+${path}_dir_${codename}${_p}=\"$pdc_var\""
+      fi
+    done
+
+    for t in $target_depends; do
+      t="$(_hard_expand_target "$t")"
+      echo "$dep_targets_to_load" | grep -q -x "$t" || dep_targets_to_load="$dep_targets_to_load
+$t"
+    done
+
+    _targets_plats_codenames="${tgt}:${p}:${codename}
+$_targets_plats_codenames"
+  done
+
+  _targets_codenames="${tgt}:${codename}
+$_target_codenames"
+
+  loaded_targets="$loaded_targets
+$tgt"
+}
+
+_load_targets ()
+{
+  tgts_to_load="$*"
+  for tgt in $tgts_to_load; do
+    _load_target "$tgt"
+  done
+
+  for tgt in $dep_targets_to_load; do
+    _load_target "$tgt"
+  done
+}
+
+_resolve_targets ()
+{
+  _find_targets;
+
+	tgts_to_resolve="$*"
+  [ "$tgts_to_resolve" ] || tgts_to_resolve="$drb_default_targets"
+
+  for tgt in "$tgts_to_resolve"; do
+    tgt="$(_soft_expand_target $tgt)"
+
+  	[ "$tgt" ] && echo "$tgts_resolved" | grep -q -x "$tgt" || tgts_resolved="$tgts_resolved
+$tgt"
+  done
+
+  _load_targets "$tgts_resolved";
+}
+
+
+
+
