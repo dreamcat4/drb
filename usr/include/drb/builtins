@@ -40,10 +40,10 @@ _select_target ()
   fi
 
   # find list of matching targets
-  tgts="$(_match_targets $tgt_alias)"
+  tgts="$(_match_visible_targets $tgt_alias)"
   echo ""
   # if no matching targets - then list all targets
-  [ "$tgts" ] || tgts="$_targets"
+  [ "$tgts" ] || tgts="$_visible_targets"
   if [ ! "$tgts" ]; then
     echo "error: No targets to select from."
     exit 1
@@ -66,7 +66,7 @@ _select_target ()
   fi
 }
 
-_check_apt_depends()
+_check_apt_depends ()
 {
   tgt="$1"
   codename="$(_lookup_codename "$tgt")"
@@ -74,7 +74,7 @@ _check_apt_depends()
   [ "$apt_depends" ] || return 0
 
   installed_pkgs=$(dpkg --get-selections | grep -e '.*[[:space:]]*install$' | sed -e 's/[[:space:]].*//g')
-  missing_pkgs=$(echo "$depends" | grep -v -x -F "$installed_pkgs")
+  missing_pkgs=$(echo "$apt_depends" | sed -e 's/\s\+/\n/g' | grep -v -x -F "$installed_pkgs")
 
   if [ "$missing_pkgs" ]; then
     echo "Target: $tgt"
@@ -85,6 +85,56 @@ _check_apt_depends()
     return 1
   else
     return 0
+  fi
+}
+
+_list_targets ()
+{
+  strs="$*"
+  if [ "$strs" ]; then
+    for str in $strs;do
+      echo "targets matching: \"$str\""
+      echo "$_visible_targets" | grep "$str"
+    done
+  else
+    echo targets:
+    echo "$_visible_targets" | grep -v -e '^[[:space:]]*$'
+  fi
+}
+
+_configure_target ()
+{
+  this_tgt="$(_real_target "$1")"
+  conf_found=true
+  user_conf_file="${drb_conf_root}/config/${this_tgt}.config"
+
+  if [ ! -e "$user_conf_file" ]; then
+    unset conf_found
+    for p in $plats; do
+
+      echo "$configured_target_dirs" | grep -q -x "$target_dir" && continue
+      _target_dir_for "$this_tgt" "$p" > /dev/null
+
+      tgt_conf_file="$(find "$target_dir" -type f -regex ".*/config.*" | head -1)"
+      if [ "$tgt_conf_file" ]; then
+        cp "$tgt_conf_file" "$user_conf_file"
+        conf_found=true
+        break
+      fi
+
+      configured_target_dirs="$configured_target_dirs
+$target_dir"
+    done
+  fi
+
+  if [ ! "$conf_found" ]; then
+    echo "no config found for target \"$this_tgt\". skipping configuration."
+    exit 1
+  fi
+
+  if [ "$drb_editor" ]; then
+    opening
+    $drb_editor "$user_conf_file"
   fi
 }
 

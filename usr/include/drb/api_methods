@@ -1,14 +1,14 @@
 #!/bin/bash
 
-target_depends ()
-{
-  target_depends="$target_depends $*"
-}
+# target_depends ()
+# {
+#   [ "$1" ] && target_depends="$target_depends $*" || echo $target_depends
+# }
 
-apt_depends ()
-{
-  apt_depends="$apt_depends $*"
-}
+# apt_depends ()
+# {
+#   apt_depends="$apt_depends $*"
+# }
 
 
 # api methods

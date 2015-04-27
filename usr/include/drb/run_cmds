@@ -132,10 +132,20 @@ _run_cmds ()
   fi
 
   for _cmd in $cmds_to_run; do
+      case "$_cmd" in
+        targets)
+          _list_targets "$_tgts"
+          continue
+        ;;
+      esac
     for tgt in $_tgts; do
       case "$_cmd" in
         select)
           _select_target "$tgt"
+          continue
+        ;;
+        configure)
+          _configure_target "$tgt"
           continue
         ;;
         clean)

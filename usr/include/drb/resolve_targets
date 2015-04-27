@@ -1,5 +1,10 @@
 #!/bin/bash
 
+_visible_target_unique ()
+{
+  ! _is_visible_target "$1"
+}
+
 _target_unique ()
 {
   ! _is_target "$1"
@@ -8,6 +13,12 @@ _target_unique ()
 _target_unique_for ()
 {
   ! _is_target_for "$1" "$2"
+}
+
+_is_visible_target ()
+{
+  this_tgt="$1"
+  echo "$_visible_targets" | grep -q -x "$this_tgt"
 }
 
 _is_target ()
@@ -26,7 +37,7 @@ _is_target_for ()
 _target_dir ()
 {
 	this_tgt="$1"
-  target_dir="$(echo $_targets_plats_dirs | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
+  target_dir="$(echo "$_targets_plats_dirs" | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
   echo "$target_dir"
 }
 
@@ -35,7 +46,7 @@ _target_dir_for ()
   this_tgt="$1"
   this_platform="$2"
   [ "$this_platform" ] || this_platform="$_drb_platform_generic"
-  target_dir="$(echo $_targets_plats_dirs | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g')"
+  target_dir="$(echo "$_targets_plats_dirs" | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g')"
   echo "$target_dir"
 }
 
@@ -78,16 +89,24 @@ _match_targets ()
   echo "$tgts"
 }
 
+_match_visible_targets ()
+{
+  str="$1"
+  tgts="$(echo "$_visible_targets" | grep "$str")"
+  tgts="$(echo "$tgts" | grep -v -x "$str")"
+  echo "$tgts"
+}
+
 _codename_unique ()
 {
-  codename="$1"
-  echo "$_codenames" | grep -q -v -x "$codename"
+  _cn="$1"
+  echo "$_codenames" | grep -q -v -x "$_cn"
 }
 
 _lookup_codename ()
 {
   this_tgt="$1"
-  codename="$(echo $_targets_codenames | grep --max-count=1 "${this_tgt}:") | sed -e 's/^.*://g'"
+  codename="$(echo "$_targets_codenames" | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
   echo "$codename"
 }
 
@@ -97,14 +116,14 @@ _lookup_codename_for ()
   this_platform="$2"
   [ "$this_platform" ] || this_platform="$_drb_platform_generic"
 
-  codename="$(echo $_targets_plats_codenames | grep --max-count=1 "${this_tgt}:${this_platform}") | sed -e 's/^.*://g'"
+  codename="$(echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:${this_platform}") | sed -e 's/^.*://g'"
   echo "$codename"
 }
 
 _find_targets_recurse ()
 {
-  tgt_dir="$1"
-  unset tgt_platforms
+  local tgt_dir="$1"
+  unset tgt_platforms _hidden
 
   # push stack
   _old_tgt_dirs="$tgt_dir $_old_tgt_dirs"
@@ -128,6 +147,10 @@ $tgt_platforms"
     _target_unique "$tgt" && _targets="$_targets
 $tgt"
 
+    vis_file="${tgt_dir}/${_drb_target_not_visible_file}"
+    [ ! -f "$vis_file" ] && _visible_target_unique "$tgt" && _visible_targets="$_visible_targets
+$tgt"
+
     _targets_dirs="${tgt}:${tgt_dir}
 $_targets_dirs"
 
@@ -146,7 +169,6 @@ $tgt\""
       _targets_plats_dirs="${tgt}:${p}:${tgt_dir}
 $_targets_plats_dirs"
     done
-
   fi
 
   for tgt in $(ls $tgt_dir); do
@@ -199,6 +221,17 @@ _run_cmd_codename ()
   eval "${cmd}_${codename}"
 }
 
+_soft_run_cmd ()
+{
+  [ "$1" ] || return 1
+  if [ ! "$(eval "command -v $1")" ]; then
+    # echo "skipping: $cmd $tgt - not implemented."
+    return 1
+  fi
+
+  eval "$1"
+}
+
 _run_api_cmd ()
 {
   if [ ! "$(eval "command -v ${cmd}")" ]; then
@@ -244,7 +277,7 @@ _load_target ()
     [ "$codename" ] || codename="$code_name"
     # [ "$codename" ] || codename="$(mktemp -u tgt_XXXXXX)" # different tgt codename for each platform
     [ "$codename" ] || codename="$generated_codename" # same tgt codename for all platforms
-    _codename_unique && _codenames="$_codenames
+    _codename_unique "$codename" && _codenames="$_codenames
 $codename"
 
     _targets_plats_codenames="${tgt}:${p}:${codename}
@@ -257,16 +290,16 @@ $_target_plats_codenames"
       p_="${p}_"
     fi
 
-    for var in $_drb_api_vars; do
-      eval "${var}_${codename}${_p}=\"\$${var}${_p}\""
-    done
-
     for api_func in $_drb_api_cmds; do
       _copy_function "$api_func" "${api_func}_${codename}${_p}"
     done
 
     for api_func in setup apt_depends target_depends; do
-      _run_api_cmd "${api_func}_${codename}${_p}"
+      _soft_run_cmd "${api_func}_${codename}${_p}"
+    done
+
+    for var in $_drb_api_vars; do
+      eval "${var}_${codename}${_p}=\"\$${var}${_p}\""
     done
 
     for path in src build image; do
@@ -295,7 +328,7 @@ $_targets_plats_codenames"
   done
 
   _targets_codenames="${tgt}:${codename}
-$_target_codenames"
+$_targets_codenames"
 
   loaded_targets="$loaded_targets
 $tgt"
@@ -320,9 +353,8 @@ _resolve_targets ()
 	tgts_to_resolve="$*"
   [ "$tgts_to_resolve" ] || tgts_to_resolve="$drb_default_targets"
 
-  for tgt in "$tgts_to_resolve"; do
+  for tgt in $tgts_to_resolve; do
     tgt="$(_soft_expand_target $tgt)"
-
   	[ "$tgt" ] && echo "$tgts_resolved" | grep -q -x "$tgt" || tgts_resolved="$tgts_resolved
 $tgt"
   done

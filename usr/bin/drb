@@ -1,13 +1,14 @@
 #!/bin/bash
-__this_file="`realpath -q "$0"`"
-__this_dir=`dirname "$__this_file"`
+__this_file="$(realpath -q "$0")"
+__this_dir="$(dirname "$__this_file")"
 
 # immutable globals
 _drb_version="0.01 pre-alpha"
-_drb_root="$(realpath ${__this_dir}/../..)"
+_drb_root="$(realpath "${__this_dir}/../..")"
 _drb_include="${_drb_root}/usr/include/drb"
 _drb_known_plats_file=".platforms"
 _drb_target_platforms_file="supported.platforms"
+_drb_target_not_visible_file="hidden"
 _drb_platform_generic="drb_platform_generic"
 _drb_impl_file="target.sh"
 _drb_api_vars="codename platforms target_depends apt_depends src_dir build_dir out_dir"
@@ -17,7 +18,9 @@ build
 image
 clean
 distclean"
-_drb_supported_cmds="select
+_drb_supported_cmds="targets
+configure
+select
 depends
 $_drb_common_cmds"
 _drb_api_cmds="apt_depends
@@ -29,6 +32,7 @@ $_drb_common_cmds"
 . "${_drb_include}/config"
 . "${_drb_include}/resolve_targets"
 . "${_drb_include}/builtins"
+. "${_drb_include}/api_methods"
 . "${_drb_include}/run_cmds"
 
 
@@ -45,8 +49,8 @@ _drb_cat_help ()
 
  Commands:
 
-      !targets    - List available build targets
-      !configure  - Configure per-target options.
+      targets    - List available build targets
+      configure  - Make user copy of target config & open in editor.
       !check      - Check a target is valid and meets drb API spec.
       !info       - Show metadata info about specific targets
       select     - Set a build alias to point to a different target
@@ -73,7 +77,7 @@ EOF
 
   echo " Version:"
   printf "      "
-  echo $_drb_version;
+  echo "$_drb_version"
 }
 
 
@@ -85,60 +89,71 @@ _drb_parse_args ()
 
   _parse_cmds=true
 
-  if [ "$#" -gt "0" ]; then
-    for arg in "$@"; do
-      case "$arg" in
+  if [ "$#" -lt "1" ]; then
+    _drb_cat_help;
+    exit 1;
+  fi
 
-        -v|--version)
-          echo "Dreamcat's Builder - version ${_drb_version}."
-          exit 1
-        ;;
+  # for arg in "$@"; do
+  while [ "$1" ]; do
+    arg="$1"
+    case "$arg" in
 
-        -h|--help)
-          _drb_cat_help
-          exit 1
-        ;;
+      -v|--version)
+        echo "Dreamcat's Builder - version ${_drb_version}."
+        exit 1
+      ;;
 
-        -x|--debug)
-          set -x
-        ;;
+      -h|--help)
+        _drb_cat_help
+        exit 1
+      ;;
 
-        --)
-          unset _parse_cmds
-          unset _parse_platforms
-        ;;
+      -x|--debug)
+        set -x
+      ;;
 
-        --echo)
-          _cmd_echo=true
-          break
-        ;;
+      --)
+        unset _parse_cmds
+        unset _parse_platforms
+      ;;
 
-        -p|--platforms)
-          _set_platforms=true
-        ;;
+      --echo)
+        _cmd_echo=true
+        break
+      ;;
 
-        *)
-          if [ "$_parse_cmds" ] && echo "$_drb_supported_cmds" | grep -q -x "$arg"; then
+      -p|--platforms)
+        _parse_platforms=true
+      ;;
+
+      *)
+        if [ "$_parse_cmds" ]; then
+          if echo "$_drb_supported_cmds" | grep -q -x "$arg"; then
             _cmds="$_cmds $arg"
           else
             unset _parse_cmds
             _parse_platforms=true
           fi
+        fi
 
-          if [ "$_parse_platforms" ] && echo "$drb_known_platforms" | grep -q -x "$arg"; then
+        if [ "$_parse_platforms" ]; then
+          if echo "$drb_known_platforms" | grep -q -x "$arg"; then
             _platforms="$_platforms $arg"
           else
             unset _parse_platforms
-            echo "$arg" | grep ' ' && echo "error: spaces not allowed in target names. User '-' or '_' instead." && exit 1
-            _tgts="$_tgts $arg"
+            _parse_targets=true
           fi
-        ;;
-      esac
-    done
-  else
-    _drb_cat_help;
-    exit 1;
-  fi
+        fi
+
+        if [ "$_parse_targets" ]; then
+          echo "$arg" | grep ' ' && echo "error: spaces not allowed in target names. User '-' or '_' instead." && exit 1
+          _tgts="$_tgts $arg"
+        fi
+      ;;
+    esac
+    shift
+  done
 }
 
 _drb_main ()
