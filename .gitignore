@@ -1,0 +1,3 @@
+etc/drb/config/*
+etc/drb/targets/*
+usr/share/drb/targets/*
