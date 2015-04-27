@@ -169,7 +169,7 @@ _clean_target ()
       fi
     fi
 
-    for such_cmd in build image; do
+    for such_cmd in build assemble; do
       rm -f "${drb_build_root}/.completed/${such_cmd}.${real_target}${_p}"
     done
 

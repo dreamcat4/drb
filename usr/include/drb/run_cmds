@@ -109,7 +109,7 @@ _run_chain ()
   tgt="$2"
   tgt="$(_hard_expand_target "$tgt")"
 
-  for __cmd in fetch sync build image; do
+  for __cmd in fetch sync build assemble; do
     _run_cmd "$__cmd" "$tgt"
     [ "$__cmd" = "$last_cmd" ] && break
   done
@@ -119,7 +119,7 @@ _run_cmds ()
 {
   cmds_to_run="$*"
 
-  if echo "$cmds_to_run" | grep -q "depends\|fetch\|sync\|build\|image"; then
+  if echo "$cmds_to_run" | grep -q "depends\|fetch\|sync\|build\|assemble"; then
     for tgt in $loaded_targets; do
       _check_apt_depends "$tgt"
     done
@@ -165,7 +165,7 @@ _run_cmds ()
 
     for tgt in $tgts_resolved; do
       case "$_cmd" in
-        fetch|sync|build|image)
+        fetch|sync|build|assemble)
           _run_chain "$_cmd" "$tgt"
           continue
         ;;

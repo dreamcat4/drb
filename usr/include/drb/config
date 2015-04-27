@@ -102,7 +102,7 @@ _drb_ensure_default_config ()
 
   [ "$drb_src_root" ]   || drb_src_root="${drb_builder_root}/src"
   [ "$drb_build_root" ] || drb_build_root="${drb_builder_root}/build"
-  [ "$drb_image_root" ] || drb_image_root="${drb_builder_root}/images"
+  [ "$drb_image_root" ] || drb_image_root="${drb_builder_root}/out"
 
   mkdir -p "$drb_builder_root/.completed" "$drb_src_root" "$drb_build_root" "$drb_image_root"
 }

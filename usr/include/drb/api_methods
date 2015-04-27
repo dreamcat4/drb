@@ -11,15 +11,32 @@
 # }
 
 
-# api methods
-_api_run_cmd ()
+drb_run ()
 {
+  # run "cmd" on "target"
   this_cmd="$1"
   shift
   these_targets="$*"
 
   for this_tgt in $these_targets; do
     _run_chain "$this_cmd" "$this_tgt"
+  done
+}
+
+drb_copy_functions_from ()
+{
+  if [ "$#" -lt 2 ]; then
+    echo "in: ${target_dir}/${_drb_impl_file}"
+    echo "error: drb_import_functions_from takes at least 2 arguments: \"target\" <functions>"
+    exit 1
+  fi
+  base_tgt="$1"
+  shift
+  base_funcs="$*"
+
+  _base_codename="$(_lookup_codename "$base_tgt")"
+  for api_func in $base_funcs; do
+    _copy_function "${api_func}_${_base_codename}" "$api_func"
   done
 }
 
@@ -38,9 +55,9 @@ build ()
   _api_run_cmd "build" "$@"
 }
 
-image ()
+assemble ()
 {
-  _api_run_cmd "image" "$@"
+  _api_run_cmd "assemble" "$@"
 }
 
 

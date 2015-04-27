@@ -105,12 +105,12 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
       !info       - Show metadata info about specific targets
       select     - Set a build alias to point to a different target
       depends    - Check depenancies. Install missing packages.
-      fetch      - Download source code required to build target images
+      fetch      - Download source code/files needed to build the target
       sync       - Update fetched source code to the latest version
-      build      - Cross-compile target operating systems
-      image      - Make disk images from compiled operating systems
+      build      - Compile/make all intermediate build-time files
+      assemble   - Create the final build product output files
       clean      - Remove build files
-      distclean  - Remove build files + src files
+      distclean  - Remove all build files + src files
 
  Platforms:
       Hardware platform(s) you wish to build targets for.
@@ -177,13 +177,6 @@ drb fetch examples
 drb info example
 ```
 
-### Perform all build actions in one step
-
-```sh
-target="android"
-drb image $target
-```
-
 ### Hacking a custom build, hacking as-you-go
 
 ```sh
@@ -203,7 +196,14 @@ drb build $target
 # Modify build products, add your own config, pre-seeded data files, etc
 
 # Create dd disk image
-drb image $target
+drb assemble $target
+```
+
+### Performing all build actions in one single step
+
+```sh
+# All prior actions will be completed first: fetch, build, sync
+drb assemble $target
 ```
 
 ### Cleaning
@@ -211,10 +211,10 @@ drb image $target
 ```sh
 target="android"
 
-# Delete the build files, dd image files, but keep the source code
+# Delete the build files, output files, but keep the source code
 drb clean $target
 
-# Delete the build files, dd image files, AND source code (everything)
+# Delete the build files, output files, AND source code (everything)
 drb distclean $target
 ```
 
