@@ -51,7 +51,6 @@ _drb_cat_help ()
 
       targets    - List available build targets
       configure  - Make user copy of target config & open in editor.
-      !check      - Check a target is valid and meets drb API spec.
       !info       - Show metadata info about specific targets
       select     - Set a build alias to point to a different target
       depends    - Check depenancies. Install missing packages.

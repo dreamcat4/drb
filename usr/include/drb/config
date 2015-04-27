@@ -97,8 +97,7 @@ _drb_ensure_default_config ()
       [ "$drb_conf_root" ]    || drb_conf_root="${HOME}/.drb"
       [ "$drb_builder_root" ] || drb_builder_root="${HOME}/.drb"
       mkdir -p "${HOME}/.drb/config" "${HOME}/.drb/targets"
-      [ -e "${HOME}/.drb/config/drb.config.example" ] || cp "${_drb_root}/etc/drb/config/drb.config.example" "${HOME}/.drb/config/drb.config.example"
-      [ -e "${HOME}/.drb/config/drb.config" ] || cp "${_drb_root}/etc/drb/config/drb.config.example" "${HOME}/.drb/config/drb.config"
+      [ -e "${HOME}/.drb/config/drb.config" ] || cp "${_drb_root}/usr/share/drb/config/drb.config.default" "${HOME}/.drb/config/drb.config"
     fi
 
   [ "$drb_src_root" ]   || drb_src_root="${drb_builder_root}/src"

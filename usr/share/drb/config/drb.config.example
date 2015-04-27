@@ -41,12 +41,3 @@
 # Extra user directories to search for config, in addition to /etc/drb/config and ~/.drb/config
 # drb_config_search_paths=""
 
-
-
-
-
-
-
-
-
-

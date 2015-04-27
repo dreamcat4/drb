@@ -1,8 +1,12 @@
 #!/bin/bash
 
 # -------------------------------------
-# Default drb global config template
+# drb global settings / configuration
 # -------------------------------------
+
+
+# The default text editor to invoke for 'drb configure' command. Set to 'false' to disable.
+# drb_editor="$EDITOR"
 
 
 # Always build for these default platforms whenever no [--platforms] are specified on the cmd line
@@ -36,13 +40,4 @@
 
 # Extra user directories to search for config, in addition to /etc/drb/config and ~/.drb/config
 # drb_config_search_paths=""
-
-
-
-
-
-
-
-
-
 

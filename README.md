@@ -12,7 +12,8 @@
   - [Todo](#todo)
 - [Downloading build targets](#downloading-build-targets)
 - [Usage](#usage)
-  - [Check apt dependancies](#check-apt-dependancies)
+  - [Global Config](#global-config)
+  - [Writing a Build Target](#writing-a-build-target)
   - [Perform all build actions in one step](#perform-all-build-actions-in-one-step)
   - [Hacking a custom build, hacking as-you-go](#hacking-a-custom-build-hacking-as-you-go)
   - [Cleaning](#cleaning)
@@ -99,9 +100,8 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
  Commands:
 
-      !targets    - List available build targets
-      !configure  - Configure per-target options.
-      !check      - Check a target is valid and meets drb API spec.
+      targets    - List available build targets
+      configure  - Make user copy of target config & open in editor.
       !info       - Show metadata info about specific targets
       select     - Set a build alias to point to a different target
       depends    - Check depenancies. Install missing packages.
@@ -129,20 +129,8 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 ### Todo
 
-!targets
-  * implement meta-build target (the "hidden" flag)
-
 !info
   * information about a target
-
-!configure
-  * implement 'configure' command to:
-      cp target.config file --> ~/.drb/config
-      launch $EDITOR on copy of config file
-
-!check
-  * drb check target
-      write a cmd to check targets for compliancy
 
 * write documentation of
     target developer's API (functions)
@@ -150,8 +138,15 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 * implement default-targets for c1
 
 
+## Usage
 
-## Downloading build targets
+### Global Config
+
+```sh
+EDITOR=cat drb configure drb
+```
+
+### Downloading build targets
 
 ! not implemented yet
 
@@ -173,18 +168,14 @@ drb sync my-targets
 drb targets
 ```
 
-## Usage
+### Writing a Build Target
 
-### Check apt dependancies
+This will be documented in the online examlples.
 
 ```sh
-target="android"
-
-# Print the list of apt-packages required to build the target OS
-drb depends $target
+drb fetch examples
+drb info example
 ```
-
-Then install the missing apt dependancies with `sudo apt-get install <missing-pkgs>`.
 
 ### Perform all build actions in one step
 
