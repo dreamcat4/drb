@@ -66,7 +66,7 @@ _load_config_for ()
   done
 
   [ "$codename" ] && for var in $vars; do
-    eval "${codename}_${var}=\"\$$var\""
+    eval "${var}_${codename}=\"\$$var\""
   done
 }
 
@@ -74,8 +74,12 @@ _load_config_for ()
 _drb_load_global_config ()
 {
   vars="default_targets builder_root src_root build_root out_root target_search_paths config_search_paths"
-  codename="drb"
   _load_config_for "drb"
+
+  # Ensure all global vars are prefixed with drb_
+  for var in $vars; do
+    [ "$var" = "${var#drb_}" ] && eval "drb_${var}=\"\$$var\""
+  done
 }
 
 

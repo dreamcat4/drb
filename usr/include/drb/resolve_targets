@@ -123,7 +123,7 @@ _lookup_codename_for ()
   this_platform="$2"
   [ "$this_platform" ] || this_platform="$_drb_platform_generic"
 
-  codename="$(echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:${this_platform}") | sed -e 's/^.*://g'"
+  codename="$(echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g')"
   echo "$codename"
 }
 
@@ -295,10 +295,8 @@ _load_target ()
       exit 1
     fi
 
-    loaded_target_dirs="$loaded_target_dirs
- $target_dir"
-
     unset $_drb_api_vars $_drb_api_cmds
+    _load_config_for "$tgt" "$p"
     . "$impl_file"
 
     [ "$codename" ] || codename="$code_name"
@@ -321,6 +319,7 @@ $_target_plats_codenames"
       _copy_function "$api_func" "${api_func}_${codename}${_p}"
     done
 
+    # ! config not yet loaded, before setup. why?
     for api_func in setup; do
       _soft_run_cmd "${api_func}_${codename}${_p}"
     done
@@ -356,6 +355,9 @@ ${path}_dir_${codename}${_p}=\"$pdc_var\""
 
     _targets_plats_codenames="${tgt}:${p}:${codename}
 $_targets_plats_codenames"
+
+    loaded_target_dirs="$loaded_target_dirs
+$target_dir"
   done
 
   _targets_codenames="${tgt}:${codename}
@@ -391,6 +393,7 @@ _resolve_targets ()
 $tgt"
   done
 
+    # ! config not yet loaded, before setup. why?
   _load_targets "$tgts_resolved";
 }
 
