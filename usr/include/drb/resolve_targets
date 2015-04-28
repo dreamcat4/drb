@@ -103,6 +103,13 @@ _codename_unique ()
   echo "$_codenames" | grep -q -v -x "$_cn"
 }
 
+_lookup_depends ()
+{
+  this_tgt="$1"
+  target_depends"$(echo "$_targets_depends" | grep "${this_tgt}:" | sed -e 's/^.*://g')"
+  echo "$target_depends"
+}
+
 _lookup_codename ()
 {
   this_tgt="$1"
@@ -141,6 +148,15 @@ $(cat "$plats_file")"
       tgt_platforms="$(cat "$plats_file")"
       found_platforms="$found_platforms
 $tgt_platforms"
+    fi
+
+    tgt_deps_file="${tgt_dir}/${_drb_tgt_depends_file}"
+    if [ -f "$tgt_deps_file" ]; then
+      tgt_depends="$(cat "$tgt_deps_file")"
+      for td in $tgt_depends; do
+        _targets_depends="$_targets_depends
+$tgt:$td"
+      done
     fi
 
     tgt="$(basename "$tgt_dir")"
@@ -247,13 +263,24 @@ _copy_function() {
     eval "$(echo "${2}()"; declare -f ${1} | tail -n +2)"
 }
 
+_load_tgt_depends ()
+{
+  local this_tgt="$1"
+  for d in $(_lookup_depends "$this_tgt"); do
+    d="$(_soft_expand_target $d)"
+    _load_target "$d"
+  done
+}
+
 _load_target ()
 {
-  tgt="$1"
-  plats="$2"
+  local tgt="$1"
+  _load_tgt_depends "$tgt"
+
+  local plats="$2"
   [ "$plats" ] || plats="$_platforms"
   plats="$_drb_platform_generic $plats"
-  generated_codename="$(mktemp -u tgt_XXXXXX)"
+  local generated_codename="$(mktemp -u tgt_XXXXXX)"
 
   for p in $plats; do
     _real_target_for "$tgt" "$p" > /dev/null
@@ -294,12 +321,16 @@ $_target_plats_codenames"
       _copy_function "$api_func" "${api_func}_${codename}${_p}"
     done
 
-    for api_func in setup apt_depends target_depends; do
+    for api_func in setup; do
       _soft_run_cmd "${api_func}_${codename}${_p}"
     done
 
     for var in $_drb_api_vars; do
       eval "${var}_${codename}${_p}=\"\$${var}${_p}\""
+    done
+
+    for f in $funcs $functions; do
+      _copy_function "$f" "${f}_${codename}${_p}"
     done
 
     for path in src build out; do
@@ -317,11 +348,11 @@ ${path}_dir_${codename}${_p}=\"$pdc_var\""
       fi
     done
 
-    for t in $target_depends; do
-      t="$(_hard_expand_target "$t")"
-      echo "$dep_targets_to_load" | grep -q -x "$t" || dep_targets_to_load="$dep_targets_to_load
-$t"
-    done
+#     for t in $target_depends; do
+#       t="$(_hard_expand_target "$t")"
+#       echo "$dep_targets_to_load" | grep -q -x "$t" || dep_targets_to_load="$dep_targets_to_load
+# $t"
+#     done
 
     _targets_plats_codenames="${tgt}:${p}:${codename}
 $_targets_plats_codenames"
@@ -337,13 +368,14 @@ $tgt"
 _load_targets ()
 {
   tgts_to_load="$*"
+
   for tgt in $tgts_to_load; do
     _load_target "$tgt"
   done
 
-  for tgt in $dep_targets_to_load; do
-    _load_target "$tgt"
-  done
+  # for tgt in $dep_targets_to_load; do
+  #   _load_target "$tgt"
+  # done
 }
 
 _resolve_targets ()

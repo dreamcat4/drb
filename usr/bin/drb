@@ -8,10 +8,11 @@ _drb_root="$(realpath "${__this_dir}/../..")"
 _drb_include="${_drb_root}/usr/include/drb"
 _drb_known_plats_file=".platforms"
 _drb_target_platforms_file="supported.platforms"
+_drb_target_depends_file="target.depends"
 _drb_target_not_visible_file="hidden"
 _drb_platform_generic="drb_platform_generic"
 _drb_impl_file="target.sh"
-_drb_api_vars="codename platforms target_depends apt_depends src_dir build_dir out_dir vars variables funcs functions"
+_drb_api_vars="codename platforms apt_depends src_dir build_dir out_dir vars funcs"
 _drb_common_cmds="fetch
 sync
 build
@@ -24,7 +25,6 @@ select
 depends
 $_drb_common_cmds"
 _drb_api_cmds="apt_depends
-target_depends
 setup
 $_drb_common_cmds"
 

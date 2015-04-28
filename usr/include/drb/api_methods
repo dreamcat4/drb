@@ -1,16 +1,5 @@
 #!/bin/bash
 
-# target_depends ()
-# {
-#   [ "$1" ] && target_depends="$target_depends $*" || echo $target_depends
-# }
-
-# apt_depends ()
-# {
-#   apt_depends="$apt_depends $*"
-# }
-
-
 drb_run ()
 {
   # run "cmd" on "target"
@@ -23,21 +12,59 @@ drb_run ()
   done
 }
 
-drb_copy_functions_from ()
+drb_copy_variables_from ()
 {
-  if [ "$#" -lt 2 ]; then
+  if [ "$#" -lt 1 ]; then
     echo "in: ${target_dir}/${_drb_impl_file}"
-    echo "error: drb_import_functions_from takes at least 2 arguments: \"target\" <functions>"
+    echo "error: drb_copy_variables_from takes at least 1 arguments: \"target\""
     exit 1
   fi
   base_tgt="$1"
-  shift
-  base_funcs="$*"
-
   _base_codename="$(_lookup_codename "$base_tgt")"
+
+  shift
+  if [ "$1" ]; then
+    base_vars="$*"
+  else
+    base_vars="$(eval "echo \"\$vars_${_base_codename}\"")"
+  fi
+
+  for v in $base_vars; do
+    vars="$vars $v" # add to our 'vars' variable
+    eval "$v=\$v_${_base_codename}"
+  done
+}
+
+drb_copy_functions_from ()
+{
+  if [ "$#" -lt 1 ]; then
+    echo "in: ${target_dir}/${_drb_impl_file}"
+    echo "error: drb_copy_functions_from takes at least 1 arguments: \"target\""
+    exit 1
+  fi
+  base_tgt="$1"
+  _base_codename="$(_lookup_codename "$base_tgt")"
+
+  shift
+  if [ "$1" ]; then
+    base_funcs="$*"
+  else
+    base_funcs="$_drb_api_cmds $(eval "echo \"\$funcs_${_base_codename}\"")"
+  fi
+
   for api_func in $base_funcs; do
     _copy_function "${api_func}_${_base_codename}" "$api_func"
   done
+}
+
+drb_copy_vars_from ()
+{
+  drb_copy_variables_from "$@"
+}
+
+drb_copy_funcs_from ()
+{
+  drb_copy_functions_from "$@"
 }
 
 fetch ()

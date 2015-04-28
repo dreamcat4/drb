@@ -65,6 +65,7 @@ Build targets can be downloaded from online sources with one of the provided gen
   TARGET_NAME/
     config.default       # template user config file
     supported.platforms  # list of target 'platforms' this target can build, e.g. 'rpi2'
+    target.depends       # load another target first, so it can be called from this one
     target.sh            # implementation of target-specific build functions (API methods)
 ```
 
