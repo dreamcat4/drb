@@ -71,8 +71,8 @@ _check_apt_depends ()
   tgt="$1"
   codename="$(_lookup_codename "$tgt")"
   apt_depends="$(eval "echo \$apt_depends_${codename}")"
-  echo "target: $tgt"
-  echo "apt_depends=$apt_depends"
+  # echo "target: $tgt"
+  # echo "apt_depends=$apt_depends"
   [ "$apt_depends" ] || return 0
   installed_pkgs=$(dpkg --get-selections | grep -e '.*[[:space:]]*install$' | sed -e 's/[[:space:]].*//g')
   missing_pkgs=$(echo "$apt_depends" | sed -e 's/\s\+/\n/g' | grep -v -x -F "$installed_pkgs")

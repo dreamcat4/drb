@@ -21,7 +21,6 @@ drb_copy_variables_from ()
   fi
   base_tgt="$1"
   _base_codename="$(_lookup_codename "$base_tgt")"
-
   shift
   if [ "$1" ]; then
     base_vars="$*"

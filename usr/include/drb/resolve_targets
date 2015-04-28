@@ -106,7 +106,7 @@ _codename_unique ()
 _lookup_depends ()
 {
   this_tgt="$1"
-  target_depends"$(echo "$_targets_depends" | grep "${this_tgt}:" | sed -e 's/^.*://g')"
+  target_depends="$(echo "$_targets_depends" | grep "${this_tgt}:" | sed -e 's/^.*://g')"
   echo "$target_depends"
 }
 
@@ -150,7 +150,7 @@ $(cat "$plats_file")"
 $tgt_platforms"
     fi
 
-    tgt_deps_file="${tgt_dir}/${_drb_tgt_depends_file}"
+    tgt_deps_file="${tgt_dir}/${_drb_target_depends_file}"
     if [ -f "$tgt_deps_file" ]; then
       tgt_depends="$(cat "$tgt_deps_file")"
       for td in $tgt_depends; do
