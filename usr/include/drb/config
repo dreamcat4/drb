@@ -73,7 +73,7 @@ _load_config_for ()
 
 _drb_load_global_config ()
 {
-  vars="default_targets builder_root src_root build_root image_root target_search_paths config_search_paths"
+  vars="default_targets builder_root src_root build_root out_root target_search_paths config_search_paths"
   codename="drb"
   _load_config_for "drb"
 }
@@ -102,9 +102,9 @@ _drb_ensure_default_config ()
 
   [ "$drb_src_root" ]   || drb_src_root="${drb_builder_root}/src"
   [ "$drb_build_root" ] || drb_build_root="${drb_builder_root}/build"
-  [ "$drb_image_root" ] || drb_image_root="${drb_builder_root}/out"
+  [ "$drb_out_root" ] || drb_out_root="${drb_builder_root}/out"
 
-  mkdir -p "$drb_builder_root/.completed" "$drb_src_root" "$drb_build_root" "$drb_image_root"
+  mkdir -p "$drb_builder_root/.completed" "$drb_src_root" "$drb_build_root" "$drb_out_root"
 }
 
 

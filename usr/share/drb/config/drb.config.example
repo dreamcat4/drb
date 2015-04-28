@@ -31,7 +31,7 @@
 
 
 # Folder for the output files of all targets
-# drb_image_root="${drb_builder_root}/out"
+# drb_out_root="${drb_builder_root}/out"
 
 
 # Extra user directories to search for targets, in addition to /etc/drb/targets and ~/.drb/targets

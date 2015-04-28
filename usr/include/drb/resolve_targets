@@ -302,7 +302,7 @@ $_target_plats_codenames"
       eval "${var}_${codename}${_p}=\"\$${var}${_p}\""
     done
 
-    for path in src build image; do
+    for path in src build out; do
       pdc_var="$(eval "echo \"\$${path}_dir_${codename}${_p}\"")"
 
       if [ ! "$pdc_var" ]; then

@@ -64,7 +64,7 @@ _run_cmd ()
       return 0
     fi
 
-    for path in src build image; do
+    for path in src build out; do
       eval "${path}_dir=\"\$${path}_dir_${codename}${_p}\""
     done
 
@@ -75,8 +75,8 @@ _run_cmd ()
       build)
         mkdir -p "$build_dir" && cd "$build_dir" || return 1
         ;;
-      image)
-        mkdir -p "$image_dir" && cd "$image_dir" || return 1
+      assemble)
+        mkdir -p "$out_dir" && cd "$out_dir" || return 1
         ;;
     esac
 
@@ -95,7 +95,7 @@ _run_cmd ()
   set -- $_old_codenames
   if [ "$1" ]; then
     codename="$1"
-    for path in src build image; do
+    for path in src build out; do
       eval "${path}_dir=\"\$${path}_dir_${codename}${_p}\""
     done
   fi
