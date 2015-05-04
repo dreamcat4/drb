@@ -4,18 +4,21 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
  
 
-  - [Introduction](#introduction)
-  - [Requirements](#requirements)
-  - [Build targets](#build-targets)
-  - [Installation](#installation)
-  - [CmdLine Args](#cmdline-args)
-  - [Todo](#todo)
-- [Downloading build targets](#downloading-build-targets)
+- [Introduction](#introduction)
+  - [Rationale](#rationale)
+  - [History](#history)
+  - [Other build tools](#other-build-tools)
+- [Requirements](#requirements)
+- [Build targets](#build-targets)
+- [Installation](#installation)
+- [CmdLine Args](#cmdline-args)
+- [Todo](#todo)
 - [Usage](#usage)
   - [Global Config](#global-config)
+  - [Downloading build targets](#downloading-build-targets)
   - [Writing a Build Target](#writing-a-build-target)
-  - [Perform all build actions in one step](#perform-all-build-actions-in-one-step)
   - [Hacking a custom build, hacking as-you-go](#hacking-a-custom-build-hacking-as-you-go)
+  - [Performing all build actions in one single step](#performing-all-build-actions-in-one-single-step)
   - [Cleaning](#cleaning)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -26,7 +29,7 @@ Dreamcat's build tool. A simple shell-based build tool.
 
 This tool has been created as a wrapper to run drb build targets. To download, compile and build OS disk images for embedded arm hardware platforms. Such as rpi2, odroid-c1, etc.
 
-***Rationale:***
+#### Rationale
 
 > "Because we do not want to go through some complex build proceedure, just to apply a kernel patch."
 
@@ -34,15 +37,15 @@ What makes the `drb` program *useful* is that it's build targets are constructed
 
 By sticking *entirely to generic shell script, with a very lightweight API structure around that*. This allows us to *very rapidly convert and transfer* those pre-existing and already-established community build proceedures, into becoming Drb build targets. *Whilst with a lowest possible barrier of entry to community members* to re-write their existing shell-based build scripts into the simple Drb API format.
 
-***History:***
+#### History
 
 Drb was brought into existence specifically for the Odroid-C1 user community. Actually, it was originally named "odroid-c1-builder". However it may eventually prove to be of some questionable value in other similar sibiling communities. Such as for odroid-*, rpi2, andso on. With this in mind, `ocb` has been renamed to `drb`. And is now an entirely generic build tool. Which is seperately managed any odroid code. All odroid-c1 specific (or other such platform) are implemented within the build targets. Which is a plugin architecture.
 
-***Note:***
+#### Other build tools
 
 On the surface, this tool looks similar to `buildroot`. However Drb was never designed to compete with `buildroot` or any of it's other more heavyweight equivalents such as `make`, `yocto`, and `gradle`. That is not Drb's role in the user community context. But rather, Dreamcat's Builder is just meant to be a unified top layer. A wrapper. All is uniformly scripted, and encapsulated behind `drb`'s much simpler, more user-friendly interface.
 
-If you don't already need `drb`, or don't understand what it is for... then don't use it! Most of the value of the `drb` tool is in it's community oriented build targets. Which are very community-driven and community specific. For a good general purpose build tool, I recommend GNU make.
+If you don't already need `drb`, or don't understand what it is for... then don't use it! Most of the value of the `drb` tool is in it's community's build targets. Where the support and benefits provided by this tool are very much linked to those community's situation. Instead of that, if you just need a general purpose build tool, I recommend autotools + GNU make.
 
 ### Requirements
 
@@ -130,24 +133,23 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 ### Todo
 
-!info
-  * information about a target
-
-* write documentation of
-    target developer's API (functions)
-
+* implement target info - information about a target
+* import stages for api funcs on load
+* target config loading issue (picking up first find matched ${p} indiscriminately)
+* check that configure target re-opens the editor for each subsequent ${p} file
+* remove target_dir info from select_target
+* write documentation of target developer's API (functions)
 * implement default-targets for c1
 
+### Usage
 
-## Usage
-
-### Global Config
+#### Global Config
 
 ```sh
 EDITOR=cat drb configure drb
 ```
 
-### Downloading build targets
+#### Downloading build targets
 
 ! not implemented yet
 
@@ -169,7 +171,7 @@ drb sync my-targets
 drb targets
 ```
 
-### Writing a Build Target
+#### Writing a Build Target
 
 This will be documented in the online examlples.
 
@@ -178,7 +180,7 @@ drb fetch examples
 drb info example
 ```
 
-### Hacking a custom build, hacking as-you-go
+#### Hacking a custom build, hacking as-you-go
 
 ```sh
 target="android"
@@ -200,14 +202,14 @@ drb build $target
 drb assemble $target
 ```
 
-### Performing all build actions in one single step
+#### Performing all build actions in one single step
 
 ```sh
 # All prior actions will be completed first: fetch, build, sync
 drb assemble $target
 ```
 
-### Cleaning
+#### Cleaning
 
 ```sh
 target="android"
