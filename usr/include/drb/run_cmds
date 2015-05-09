@@ -17,80 +17,79 @@ _run_cmd_for ()
   _run_cmd "$@"
 }
 
-_run_cmd ()
+_ensure_plats_push_codename ()
 {
-  cmd="$1"
-  tgt="$2"
-  plats="$3"
   [ "$plats" ] || plats="$_platforms"
-  plats="$_drb_platform_generic $plats"
+  echo "$plats" | grep -q "$_drb_platform_generic" || plats="$_drb_platform_generic $plats"
 
   # push stack
   [ "$codename" ] && _old_codenames="$codename $_old_codenames"
+}
 
-  for p in $plats; do
-    _real_target_for "$tgt" "$p" > /dev/null
-    tgt="$real_target"
+_set_unset_s ()
+{
+  case $s in
+    $_drb_on_stage_generic|$_drb_clean_complete_stage|$_drb_distclean_complete_stage)
+      unset s_
+      ;;
+    *)
+      s_="${s}_"
+      ;;
+  esac
+}
 
-    _target_dir_for "$tgt" "$p" > /dev/null
+_set_unset_p ()
+{
+  if [ "$p" = "$_drb_platform_generic" ]; then
+    unset _p p_
+  else
+    _p="_${p}"
+    # p_="${p}_"
+  fi
+}
 
-    impl_file="${target_dir}/${_drb_impl_file}"
-    if [ ! -e "$impl_file" ]; then
-      echo "error: Missing file \"$impl_file\", required by target \"$tgt\""
-      exit 1
-    fi
+_set_unset_a_vars ()
+{
+  _real_target_for "$tgt" "$p" > /dev/null
+  tgt="$real_target"
 
-    unset $_drb_api_vars $_drb_api_cmds
-    . "$impl_file"
+  _lookup_codename_for "$tgt" "$p" > /dev/null
+  unset $vars $funcs $_drb_api_vars $_drb_api_cmds
 
-    [ "$codename" ] || _lookup_codename_for "$tgt" "$p"
+  if [ "$a" = "$_drb_platform_generic" ]; then
+    unset _a
+  else
+    _a="_${a}"
+  fi
 
-    if [ "$p" = "$_drb_platform_generic" ]; then
-      unset p _p p_
-    else
-      _p="_${p}"
-      p_="${p}_"
-    fi
+  retval=0
+}
 
-    if [ -e "${drb_build_root}/.completed/${cmd}.${tgt}" ]; then
-      echo "skipping: $cmd $tgt - already completed."
-      return 0
-    fi
-
-    _load_config_for "$tgt" "$p"
-
-    if [ ! "$(eval "command -v ${cmd}_${codename}${_p}")" ]; then
-      echo "skipping: $cmd $tgt - not implemented."
-      return 0
-    fi
-
-    for path in src build out; do
-      eval "${path}_dir=\"\$${path}_dir_${codename}${_p}\""
-    done
-
-    case "$_cmd" in
-      fetch|sync)
-        mkdir -p "$src_dir" && cd "$src_dir"     || return 1
-        ;;
-      build)
-        mkdir -p "$build_dir" && cd "$build_dir" || return 1
-        ;;
-      assemble)
-        mkdir -p "$out_dir" && cd "$out_dir" || return 1
-        ;;
-    esac
-
-    eval "${cmd}_${codename}${_p}";
-    retval="$?"
-
-    if [ "$retval" -eq 0 ]; then
-      touch "${drb_build_root}/.completed/${cmd}.${tgt}${_p}"
-      echo "command: $cmd $tgt - completed successfully."
-    else
-      echo "error: failed to $cmd target \"$tgt\"" && exit "$retval"
-    fi
+_reload_vars_inner ()
+{
+# set -x
+  for var in $_drb_api_vars; do
+    eval "${var}${_b}=\"\$${var}${_b}_${codename}${_p}\""
   done
+# set +x
 
+  for func in $_drb_api_cmds $funcs; do
+    _copy_function "${func}${_b}_${codename}${_p}" "${func}${_b}"
+  done
+}
+
+_set_b_load_vars ()
+{
+  unset b _b
+  _reload_vars_inner
+  if [ "$_p" ]; then
+    _b="_${p}"
+    _reload_vars_inner
+  fi
+}
+
+_pop_codenames ()
+{
   # pop 1 level
   set -- $_old_codenames
   if [ "$1" ]; then
@@ -103,21 +102,97 @@ _run_cmd ()
   _old_codenames="$@"
 }
 
+_run_cmd ()
+{
+  local cmd="$1"
+  local tgt="$2"
+  local plats="$3"
+
+  # part 1
+  _ensure_plats_push_codename;
+
+  # local s
+  for s in $_drb_cmd_stages; do
+    _set_unset_s
+
+    local p
+    for p in $plats; do
+      _set_unset_p
+
+      as="$_drb_platform_generic"
+      [ "$p" != "$_drb_platform_generic" ] && as="$as $p"
+
+      for a in $as; do
+        local codename
+        _set_unset_a_vars;
+
+        # part 3
+        if [ -e "${drb_builder_root}/.completed/${s_}${cmd}${_a}.${tgt}${_p}" ]; then
+          # echo "skipping: ${s_}${cmd}${_a}.${tgt}${_p} - ${s_}${cmd}${_a}_${codename}${_p} - already completed."
+          continue
+        fi
+
+        if [ ! "$(eval "command -v ${s_}${cmd}${_a}_${codename}${_p}")" ]; then
+          # echo "skipping: ${s_}${cmd}${_a}.${tgt}${_p} - ${s_}${cmd}${_a}_${codename}${_p} - not implemented."
+          touch "${drb_builder_root}/.completed/${s_}${cmd}${_a}.${tgt}${_p}"
+          continue
+        fi
+
+        # part 4
+        echo "loading vars for - ${s_}${cmd}${_a}_${codename}${_p}";
+        _set_b_load_vars;
+
+        # part 5
+        case "$_cmd" in
+          fetch|sync)
+            this_dir="$src_dir"
+            ;;
+          build)
+            this_dir="$build_dir"
+            ;;
+          assemble)
+            this_dir="$out_dir"
+            ;;
+        esac
+
+echo this_dir="$src_dir"
+        mkdir -p "$this_dir" && cd "$this_dir" || return 1
+echo "running - ${s_}${cmd}${_a}_${codename}${_p}";
+        eval "${s_}${cmd}${_a}_${codename}${_p}";
+echo "Done."
+        retval="$?"
+
+        if [ "$retval" -eq 0 ]; then
+          touch "${drb_builder_root}/.completed/${s_}${cmd}${_a}.${tgt}${_p}"
+          echo "command: $cmd${_a} $tgt - completed successfully."
+        else
+          echo "error: failed to $cmd target \"$tgt${_a}\"" && exit "$retval"
+        fi
+      done
+    done
+  done
+
+  # part 6
+  _pop_codenames;
+}
+
 _run_chain ()
 {
-  last_cmd="$1"
-  tgt="$2"
+  local last_cmd="$1"
+  local tgt="$2"
+  local __cmd
   tgt="$(_hard_expand_target "$tgt")"
 
   for __cmd in fetch sync build assemble; do
-    _run_cmd "$__cmd" "$tgt"
+    _run_cmd "$__cmd" "$tgt" "$_platforms"
     [ "$__cmd" = "$last_cmd" ] && break
   done
 }
 
 _run_cmds ()
 {
-  cmds_to_run="$*"
+  local cmds_to_run="$*"
+  local _cmd tgt
 
   if echo "$cmds_to_run" | grep -q "depends\|fetch\|sync\|build\|assemble"; then
     for tgt in $loaded_targets; do
@@ -132,13 +207,14 @@ _run_cmds ()
   fi
 
   for _cmd in $cmds_to_run; do
-      case "$_cmd" in
-        targets)
-          _list_targets "$_tgts"
-          continue
-        ;;
-      esac
+    case "$_cmd" in
+      targets)
+        _list_targets "$_tgts"
+        continue
+      ;;
+    esac
     for tgt in $_tgts; do
+      tgt="$(_hard_expand_target "$tgt")"
       case "$_cmd" in
         select)
           _select_target "$tgt"
@@ -146,6 +222,10 @@ _run_cmds ()
         ;;
         configure)
           _configure_target "$tgt"
+          continue
+        ;;
+        info)
+          _target_info "$tgt"
           continue
         ;;
         clean)

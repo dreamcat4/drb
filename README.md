@@ -134,10 +134,8 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 ### Todo
 
 * implement target info - information about a target
-* import stages for api funcs on load
 * target config loading issue (picking up first find matched ${p} indiscriminately)
 * check that configure target re-opens the editor for each subsequent ${p} file
-* remove target_dir info from select_target
 * write documentation of target developer's API (functions)
 * implement default-targets for c1
 

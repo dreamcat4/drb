@@ -17,34 +17,34 @@ _target_unique_for ()
 
 _is_visible_target ()
 {
-  this_tgt="$1"
+  local this_tgt="$1"
   echo "$_visible_targets" | grep -q -x "$this_tgt"
 }
 
 _is_target ()
 {
-  this_tgt="$1"
+  local this_tgt="$1"
   echo "$_targets" | grep -q -x "$this_tgt"
 }
 
 _is_target_for ()
 {
-  this_tgt="$1"
-  this_plat="$2"
+  local this_tgt="$1"
+  local this_plat="$2"
   eval "echo \"\$_${this_plat}_targets\"" | grep -q -x "$this_tgt"
 }
 
 _target_dir ()
 {
-	this_tgt="$1"
+	local this_tgt="$1"
   target_dir="$(echo "$_targets_plats_dirs" | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
   echo "$target_dir"
 }
 
 _target_dir_for ()
 {
-  this_tgt="$1"
-  this_platform="$2"
+  local this_tgt="$1"
+  local this_platform="$2"
   [ "$this_platform" ] || this_platform="$_drb_platform_generic"
   target_dir="$(echo "$_targets_plats_dirs" | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g')"
   echo "$target_dir"
@@ -53,8 +53,8 @@ _target_dir_for ()
 _real_target_for ()
 {
   # expand alias name --> target name
-  this_tgt="$1"
-  this_platform="$2"
+  local this_tgt="$1"
+  local this_platform="$2"
   [ "$this_platform" ] || this_platform="$_drb_platform_generic"
 
   _target_dir_for "$this_tgt" "$this_platform" > /dev/null
@@ -70,7 +70,7 @@ _real_target_for ()
 _real_target ()
 {
   # expand alias name --> target name
-  this_tgt="$1"
+  local this_tgt="$1"
   _target_dir "$this_tgt" > /dev/null
   if [ "$target_dir" ]; then
 	  real_path="$(realpath "$target_dir")"
@@ -83,47 +83,66 @@ _real_target ()
 
 _match_targets ()
 {
-  str="$1"
-  tgts="$(echo "$_targets" | grep "$str")"
+  local str="$1"
+  local tgts="$(echo "$_targets" | grep "$str")"
   tgts="$(echo "$tgts" | grep -v -x "$str")"
   echo "$tgts"
 }
 
 _match_visible_targets ()
 {
-  str="$1"
-  tgts="$(echo "$_visible_targets" | grep "$str")"
+  local str="$1"
+  local tgts="$(echo "$_visible_targets" | grep "$str")"
   tgts="$(echo "$tgts" | grep -v -x "$str")"
   echo "$tgts"
 }
 
 _codename_unique ()
 {
-  _cn="$1"
+  local _cn="$1"
   echo "$_codenames" | grep -q -v -x "$_cn"
 }
 
 _lookup_depends ()
 {
-  this_tgt="$1"
+  local this_tgt="$1"
   target_depends="$(echo "$_targets_depends" | grep "${this_tgt}:" | sed -e 's/^.*://g')"
   echo "$target_depends"
 }
 
 _lookup_codename ()
 {
-  this_tgt="$1"
+  local this_tgt="$1"
   codename="$(echo "$_targets_codenames" | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
   echo "$codename"
 }
 
+_lookup_platforms ()
+{
+  local this_tgt="$1"
+# !
+# echo "_targets_plats_codenames=$_targets_plats_codenames"
+  platforms="$(echo "$_targets_plats_dirs" | grep -e "^${this_tgt}:.*" | cut -d':' -f2)"
+# echo platforms="$(echo "$_targets_plats_codenames" | grep -e "^${this_tgt}:.*" | cut -d':' -f2)"
+  echo "$platforms"
+}
+
 _lookup_codename_for ()
 {
-  this_tgt="$1"
-  this_platform="$2"
+  local this_tgt="$1"
+  local this_platform="$2"
   [ "$this_platform" ] || this_platform="$_drb_platform_generic"
 
-  codename="$(echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g')"
+# echo "_targets_plats_codenames=$_targets_plats_codenames"
+  # echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g'
+
+  if [ "$this_platform" = "$_drb_platform_generic" ]; then
+    codename="$(echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
+  else
+    codename="$(echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:${this_platform}:" | sed -e 's/^.*://g')"
+  fi
+
+
   echo "$codename"
 }
 
@@ -240,7 +259,7 @@ _run_cmd_codename ()
 _soft_run_cmd ()
 {
   [ "$1" ] || return 1
-  if [ ! "$(eval "command -v $1")" ]; then
+  if [ ! "$(eval "command -v \"$1\"")" ]; then
     # echo "skipping: $cmd $tgt - not implemented."
     return 1
   fi
@@ -250,7 +269,7 @@ _soft_run_cmd ()
 
 _run_api_cmd ()
 {
-  if [ ! "$(eval "command -v ${cmd}")" ]; then
+  if [ ! "$(eval "command -v \"${cmd}\"")" ]; then
     # echo "skipping: $cmd $tgt - not implemented."
     return 1
   fi
@@ -265,96 +284,173 @@ _copy_function() {
 
 _load_tgt_depends ()
 {
+# set -x
   local this_tgt="$1"
+  local d
   for d in $(_lookup_depends "$this_tgt"); do
     d="$(_soft_expand_target $d)"
+# echo _load_target "$d"
     _load_target "$d"
   done
+# set +x
+}
+
+_set_default_build_dirs ()
+{
+  # set default src build out dirs
+  for path in src build out; do
+    pdc_var="$(eval "echo \"\$${path}_dir${_a}_${codename}${_p}\"")"
+    if [ ! "$pdc_var" ]; then
+      eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\""
+      eval "${path}_dir${_a}_${codename}${_p}=\"$pdc_var\""
+    fi
+    # if not a full path starting in '/', then:
+    if [ "$pdc_var" = "${pdc_var#/}" ]; then
+      eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}/${pdc_var}\""
+      eval "${path}${_a}_dir_${codename}${_p}=\"$pdc_var\""
+    fi
+  done
+}
+
+_run_staged_setup ()
+{
+# set -x
+  for s in $_drb_pre_cmd_stages $_drb_on_cmd_stages $_drb_post_cmd_stages; do
+    if [ "$s" = "$_drb_on_stage_generic" ]; then
+      _soft_run_cmd "setup"
+      [ "$_a" ] && _soft_run_cmd "setup${_a}"
+    else
+      _soft_run_cmd "${s}_setup"
+      [ "$_a" ] && _soft_run_cmd "${s}_setup${_a}"
+    fi
+  done
+
+# set +x
+}
+
+_load_vars_inner ()
+{
+  for path in src build out; do
+    # if not a full path starting in '/', then:
+    pdc_var="$(eval "echo \"\$${path}_dir${_a}_${codename}${_p}\"")"
+    if [ "$pdc_var" = "${pdc_var#/}" ]; then
+      eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}/${pdc_var}\""
+      eval "${path}${_a}_dir_${codename}${_p}=\"$pdc_var\""
+    fi
+  done
+
+  for var in $_drb_api_vars $vars; do
+    eval "${var}${_a}_${codename}${_p}=\"\$${var}${_a}\""
+  done
+
+  for func in $funcs $_drb_api_cmds_expanded; do
+# echo _copy_function "${func}${_a}" "${func}${_a}_${codename}${_p}"
+    _copy_function "${func}${_a}" "${func}${_a}_${codename}${_p}"
+# echo $?
+  done
+}
+
+_load_depends_filter_plats_generate_codename ()
+{
+  [ "$run_plats" ] || run_plats="$_platforms"
+
+  _real_target "$tgt" > /dev/null
+  tgt="$real_target"
+
+  _load_tgt_depends "$tgt"
+# echo two
+  generated_codename="$(mktemp -u tgt_XXXXXX)"
+
+echo
+echo "load tgt=$tgt"
+
+  local tp="$(_lookup_platforms "$tgt")"
+# echo "tp=^$tp$"
+  [ "$tp" ] || tp="$_drb_platform_generic"
+
+# echo "tp=^$tp$"
+  for mp in $run_plats $_drb_platform_generic; do
+# echo "mp=$mp"
+    echo "$mp" | grep -q -x -F "$tp" && plats="$plats $mp"
+# echo echo "$mp" \| grep -q -x -F "$tp" \&\& plats="$plats $mp"
+  done
+
+echo "plats=$plats"
 }
 
 _load_target ()
 {
   local tgt="$1"
-  _load_tgt_depends "$tgt"
+  local run_plats="$2"
+  local plats
+  local generated_codename
 
-  local plats="$2"
-  [ "$plats" ] || plats="$_platforms"
-  plats="$_drb_platform_generic $plats"
-  local generated_codename="$(mktemp -u tgt_XXXXXX)"
+  # part 1
+  _load_depends_filter_plats_generate_codename;
 
   for p in $plats; do
+
+    # part 2
     _real_target_for "$tgt" "$p" > /dev/null
     tgt="$real_target"
 
     _target_dir_for "$tgt" "$p" > /dev/null
+    [ "$target_dir" ] || continue
     echo "$loaded_target_dirs" | grep -q -x "$target_dir" && continue
 
-    impl_file="${target_dir}/${_drb_impl_file}"
+    local impl_file="${target_dir}/${_drb_impl_file}"
     if [ ! -e "$impl_file" ]; then
       echo "error: Missing file \"$impl_file\", required by target \"$tgt\""
       exit 1
     fi
 
-    unset $_drb_api_vars $_drb_api_cmds
+    unset $vars $_drb_api_vars
+    unset $funcs $_drb_api_cmds_expanded
+
+    if [ "$p" != "$_drb_platform_generic" ]; then
+      unset $(echo $vars $_drb_api_vars | sed -e "s/ \|$/_${p} /g")
+      unset $(echo $funcs $_drb_api_cmds_expanded | sed -e "s/ \|$/_${p} /g")
+    fi
+
+    _drb_runtime_platform="$p" # this is for "api/drb_copy_vars_from"
+
     _load_config_for "$tgt" "$p"
     . "$impl_file"
 
     [ "$codename" ] || codename="$code_name"
-    # [ "$codename" ] || codename="$(mktemp -u tgt_XXXXXX)" # different tgt codename for each platform
     [ "$codename" ] || codename="$generated_codename" # same tgt codename for all platforms
     _codename_unique "$codename" && _codenames="$_codenames
 $codename"
 
     _targets_plats_codenames="${tgt}:${p}:${codename}
-$_target_plats_codenames"
+$_targets_plats_codenames"
 
     if [ "$p" = "$_drb_platform_generic" ]; then
       unset p _p p_
+      unset _a
+      # var --> var_codename
+      _set_default_build_dirs
+echo one
+      _run_staged_setup
+      _load_vars_inner
     else
+      unset _a
       _p="_${p}"
       p_="${p}_"
+      # var --> var_codename_p
+# set -x
+      _set_default_build_dirs
+# set +x
+      _a="_${p}"
+      _set_default_build_dirs
+echo two
+      _run_staged_setup
+      unset _a
+      _load_vars_inner
+      # var_p --> var_p_codename_p
+      _a="_${p}"
+      _load_vars_inner
     fi
-
-    for api_func in $_drb_api_cmds; do
-      _copy_function "$api_func" "${api_func}_${codename}${_p}"
-    done
-
-    # ! config not yet loaded, before setup. why?
-    for api_func in setup; do
-      _soft_run_cmd "${api_func}_${codename}${_p}"
-    done
-
-    for var in $_drb_api_vars; do
-      eval "${var}_${codename}${_p}=\"\$${var}${_p}\""
-    done
-
-    for f in $funcs $functions; do
-      _copy_function "$f" "${f}_${codename}${_p}"
-    done
-
-    for path in src build out; do
-      pdc_var="$(eval "echo \"\$${path}_dir_${codename}${_p}\"")"
-
-      if [ ! "$pdc_var" ]; then
-        eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\"
-${path}_dir_${codename}${_p}=\"$pdc_var\""
-      fi
-
-      if [ "$pdc_var" = "${pdc_var#/}" ]; then
-        # if not a full path starting in '/', then:
-        eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}/${pdc_var}\"
-${path}_dir_${codename}${_p}=\"$pdc_var\""
-      fi
-    done
-
-#     for t in $target_depends; do
-#       t="$(_hard_expand_target "$t")"
-#       echo "$dep_targets_to_load" | grep -q -x "$t" || dep_targets_to_load="$dep_targets_to_load
-# $t"
-#     done
-
-    _targets_plats_codenames="${tgt}:${p}:${codename}
-$_targets_plats_codenames"
 
     loaded_target_dirs="$loaded_target_dirs
 $target_dir"

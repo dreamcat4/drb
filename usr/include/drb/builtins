@@ -34,7 +34,6 @@ _select_target ()
       old_target_dir="$(realpath "$target_dir")"
       old_target="$(basename "$old_target_dir")"
       echo " Old target: $old_target"
-      echo "   Location: $old_target_dir"
       _delete="Delete alias \"$tgt_alias\""
     fi
   fi
@@ -116,6 +115,7 @@ _configure_target ()
       echo "$configured_target_dirs" | grep -q -x "$target_dir" && continue
       _target_dir_for "$this_tgt" "$p" > /dev/null
 
+      # ! does not match against config.${p}, may pick up other platform
       tgt_conf_file="$(find "$target_dir" -type f -regex ".*/config.*" | head -1)"
       if [ "$tgt_conf_file" ]; then
         cp "$tgt_conf_file" "$user_conf_file"
@@ -139,20 +139,37 @@ $target_dir"
   fi
 }
 
-_clean_target ()
+_target_info ()
 {
+  unset $vars $funcs $_drb_api_vars $_drb_api_cmds
   tgt="$1"
-  plats="$2"
-  [ "$plats" ] || plats="$_platforms"
-  plats="$_drb_platform_generic $plats"
+  tgt="$(_soft_expand_target "$tgt")"
+  _lookup_platforms "$tgt" > /dev/null
+# _lookup_platforms "$tgt"
 
-  for p in $plats; do
-    _real_target_for "$tgt" "$p" > /dev/null
-    tgt="$real_target"
+  echo
+  printf "target: \"$tgt\"\n"
 
-    codename="$(_lookup_codename_for "$tgt" "$p")"
+  _target_dir "$tgt" > /dev/null
     _real_target "$tgt" > /dev/null
 
+  # [ -h "$target_dir" ] && printf "alias: true\n"
+  [ -h "$target_dir" ] && printf "alias: true \"$tgt\" ---> $real_target\n"
+  echo
+
+  echo "platforms: $platforms"
+
+  # for p in $platforms $_drb_platform_generic; do
+  for p in $platforms; do
+    _real_target_for "$tgt" "$p" > /dev/null
+    tgt="$real_target"
+    _target_dir_for "$tgt" "$p" > /dev/null
+
+    codename="$(_lookup_codename_for "$tgt" "$p")"
+# echo "tgt: $tgt"
+# echo "codename: $codename"
+
+    # ! reverse load vars inner
     if [ "$p" = "$_drb_platform_generic" ]; then
       unset p _p p_
     else
@@ -160,75 +177,157 @@ _clean_target ()
       p_="${p}_"
     fi
 
-    if [ "$(eval "command -v clean_${codename}${_p}")" ]; then
-      eval "clean_${codename}${_p}";
-      retval="$?"
-
-      if [ $retval -ne 0]; then
-        echo "error: failed to clean target \"$tgt\""
-        exit "$retval"
-      fi
+    if [ ! "$p" ]; then
+      up="${plats#$_drb_platform_generic}"
+      [ "$up" ] && printf "%15s\n" "platforms: $up"
+    else
+      printf "%15s\n" "for platform: $p"
     fi
 
-    for such_cmd in build assemble; do
-      rm -f "${drb_build_root}/.completed/${such_cmd}.${real_target}${_p}"
+    printf "       path: $target_dir\n"
+
+    if echo "$tgt" | grep -q "$_visible_targets"; then
+      printf "%18s\n" "hidden: false"
+    else
+      printf "%18s\n" "hidden: true"
+    fi
+
+    echo
+    printf "  functions:\n"
+    for api_func in $_drb_api_cmds $funcs; do
+      func="$(eval "command -v \"${api_func}_${codename}${_p}\"")"
+      [ "$func" ] && printf "%19s\n" "${func%_${codename}${_p}}"
+      # [ "$func" ] && declare -f "$func"
     done
 
-    for path in build out; do
-      pdc_var="$(eval "echo \"\$${path}_root_${codename}${_p}\"")"
-      [ "$pdc_var" ] || eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\""
-      if ! rm -Rf "$pdc_var"; then
-        echo "error: failed to clean target \"$tgt\""
-        exit 1
-      fi
+    echo
+    printf "       vars:\n"
+    for var in $_drb_api_vars $vars; do
+      printf "%19s" "$var"
+      var="$(eval "echo \"${var}_${codename}${_p}\"")"
+      val="$(eval "echo \"\$${var}\"")"
+      [ "$val" ] && printf " = $val" || printf " = n/a"
+      printf "\n"
+    done
+    echo
+  done
+}
+
+_drb_remove_build_stamps ()
+{
+  build_stamps="$*"
+  # delete stages matching pattern
+  for such_cmd in $build_stamps; do
+    if ! rm -f "${drb_builder_root}/.completed/"*"${s_}${such_cmd}${_a}.${tgt}${_p}"; then
+      echo "error: failed to remove build stamps for target: \"$tgt\""
+      return 1
+    fi
+  done
+}
+
+_drb_clean_build_dirs ()
+{
+  build_dirs="$*"
+  for path in $build_dirs; do
+    pdc_var="$(eval "echo \"\$${path}_root${_a}_${codename}${_p}\"")"
+    [ "$pdc_var" ] || eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\""
+    if ! rm -Rf "$pdc_var"; then
+      echo "error: failed to remove \"$pdc_var\""
+      return 1
+    fi
+  done
+}
+
+_clean_target ()
+{
+  local tgt="$1"
+  local plats="$2"
+
+  # part 1
+  _ensure_plats_push_codename;
+
+  local s
+  for s in $_drb_clean_stages; do
+    _set_unset_s
+
+    local p
+    for p in $plats; do
+      _set_unset_p
+
+      as="$_drb_platform_generic"
+      [ "$p" != "$_drb_platform_generic" ] && as="$as $p"
+
+      for a in $as; do
+        local codename
+        _set_unset_a_vars;
+
+        # part 3
+        if [ "$s" = "$_drb_clean_stage" ]; then
+          _drb_clean_build_dirs "build out"
+          retval="$?"
+
+        elif [ "$s" = "$_drb_clean_complete_stage" ]; then
+          _drb_remove_build_stamps "build assemble";
+          retval="$?"
+
+        elif [ "$(eval "command -v \"${s_}clean${_a}_${codename}${_p}\"")" ]; then
+          eval "${s_}clean${_a}_${codename}${_p}";
+          retval="$?"
+        fi
+
+        if [ $retval -ne 0 ]; then
+          echo "error: failed to clean target \"$tgt\""
+          exit "$retval"
+        fi
+      done
     done
   done
 }
 
 _distclean_target ()
 {
-  tgt="$1"
-  plats="$2"
-  [ "$plats" ] || plats="$_platforms"
-  plats="$_drb_platform_generic $plats"
+  _clean_target "$@"
 
-  _clean_target "$tgt"
+  local tgt="$1"
+  local plats="$2"
 
-  for p in $plats; do
-    _real_target_for "$tgt" "$p" > /dev/null
-    tgt="$real_target"
+  # part 1
+  _ensure_plats_push_codename;
 
-    codename="$(_lookup_codename_for "$tgt" "$p")"
-    _real_target "$tgt" > /dev/null
+  local s
+  for s in $_drb_distclean_stages; do
+    _set_unset_s
 
-    if [ "$p" = "$_drb_platform_generic" ]; then
-      unset p _p p_
-    else
-      _p="_${p}"
-      p_="${p}_"
-    fi
+    local p
+    for p in $plats; do
+      _set_unset_p
 
-    if [ "$(eval "command -v distclean_${codename}${_p}")" ]; then
-      eval "clean_${codename}${_p}";
-      retval="$?"
+      as="$_drb_platform_generic"
+      [ "$p" != "$_drb_platform_generic" ] && as="$as $p"
 
-      if [ $retval -ne 0]; then
-        echo "error: failed to clean target \"$tgt\""
-        exit "$retval"
-      fi
-    fi
+      for a in $as; do
+        local codename
+        _set_unset_a_vars;
 
-    for such_cmd in fetch sync; do
-      rm -f "${drb_build_root}/.completed/${such_cmd}.${real_target}${_p}"
-    done
+        # part 3
+        if [ "$s" = "$_drb_distclean_stage" ]; then
+          _drb_clean_build_dirs "src"
+          retval="$?"
 
-    for path in src; do
-      pdc_var="$(eval "echo \"\$${path}_root_${codename}${_p}\"")"
-      [ "$pdc_var" ] || eval "pdc_var=\"\${drb_${path}_root}/${tgt}${_p}\""
-      if ! rm -Rf "$pdc_var"; then
-        echo "error: failed to clean target \"$tgt\""
-        exit 1
-      fi
+        elif [ "$s" = "$_drb_distclean_complete_stage" ]; then
+          _drb_remove_build_stamps "fetch sync";
+          retval="$?"
+
+        elif [ "$(eval "command -v \"${s_}distclean${_a}_${codename}${_p}\"")" ]; then
+          eval "${s_}distclean${_a}_${codename}${_p}";
+          retval="$?"
+        fi
+
+        if [ $retval -ne 0 ]; then
+          echo "error: failed to distclean target \"$tgt\""
+          exit "$retval"
+        fi
+      done
     done
   done
 }

@@ -17,8 +17,8 @@ _drb_search_paths ()
 
 _load_configs_in ()
 {
-  conf_path="$1"
-  conf_prefix="$2"
+  local conf_path="$1"
+  local conf_prefix="$2"
 
   if [ "$conf_prefix" ]; then
     conf_prefix="${conf_prefix}\.config"
@@ -27,12 +27,12 @@ _load_configs_in ()
   fi
 
   if [ -d "$conf_path" ]; then
-    default_configs="$(find "$conf_path" -type f -regex ".*/${conf_prefix}\.default\..*\|.*/${conf_prefix}\.[^\.]*ample")"
+    default_configs="$(find "$conf_path" -type f -regex "^${conf_path}.*/${conf_prefix}\.default.*\|^${conf_path}.*/${conf_prefix}\.[^\.]*ample")"
     for default_config in $default_configs; do
       . "$default_config"
     done
 
-    user_configs="$(find "$config_path" -type f -regex ".*/${conf_prefix}.*" -not -regex ".*/${conf_prefix}\.default\..*\|.*/${conf_prefix}\.[^\.]*ample")"
+    user_configs="$(find "$conf_path" -type f -regex "^${conf_path}.*/${conf_prefix}.*" -not -regex "^${conf_path}.*/${conf_prefix}\.default.*\|^${conf_path}.*/${conf_prefix}\.[^\.]*ample")"
     for user_config in $user_configs; do
       . "$user_config"
     done
@@ -41,9 +41,10 @@ _load_configs_in ()
 
 _load_config_for ()
 {
-  _conf_prefix="$1"
-  platforms="$2"
+  local _conf_prefix="$1"
+  local platforms="$2"
   [ "$platforms" ] || platforms="$_platforms"
+  [ "$platforms" ] || platforms="$_drb_platform_generic"
 
   [ "$vars" ] && unset $vars
 
@@ -51,8 +52,8 @@ _load_config_for ()
     for p in $platforms; do
 	    _target_dir_for "$_conf_prefix" "$p" > /dev/null
 	    if [ "$target_dir" ]; then
-		    _load_configs_in "$target_dir"
-	      _load_configs_in "$target_dir" "$p"
+        _load_configs_in "$target_dir"
+        [ "$p" = "$_drb_platform_generic" ] || _load_configs_in "$target_dir" "$p"
 	    fi
     done
   fi
@@ -61,15 +62,11 @@ _load_config_for ()
     _load_configs_in "$config_path" "$_conf_prefix"
 
     for p in $platforms; do
-      _load_configs_in "$config_path" "${_conf_prefix}\.${p}"
+      _load_configs_in "$config_path" "${_conf_prefix}"
+      [ "$p" = "$_drb_platform_generic" ] || _load_configs_in "$config_path" "${_conf_prefix}\.${p}"
     done
   done
-
-  [ "$codename" ] && for var in $vars; do
-    eval "${var}_${codename}=\"\$$var\""
-  done
 }
-
 
 _drb_load_global_config ()
 {
@@ -108,15 +105,15 @@ _drb_ensure_default_config ()
   [ "$drb_build_root" ] || drb_build_root="${drb_builder_root}/build"
   [ "$drb_out_root" ] || drb_out_root="${drb_builder_root}/out"
 
-  mkdir -p "$drb_builder_root/.completed" "$drb_src_root" "$drb_build_root" "$drb_out_root"
+  mkdir -p "${drb_builder_root}/.completed" "$drb_src_root" "$drb_build_root" "$drb_out_root"
 }
 
 
 _drb_load_platforms ()
 {
   for config_path in $_config_search_paths; do
-    platforms_file="${config_path}/.platforms"
-    [ -f "${config_path}/.platforms" ] || continue
+    platforms_file="${config_path}/${_drb_known_plats_file}"
+    [ -f "$platforms_file" ] || continue
     for p in $(cat "$platforms_file"); do
       if ! echo "$drb_known_platforms" | grep -q -x "$p"; then
         drb_known_platforms="$drb_known_platforms

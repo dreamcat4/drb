@@ -12,8 +12,10 @@ drb_run ()
   done
 }
 
-drb_copy_variables_from ()
+drb_copy_vars_from ()
 {
+  # check if "$1:platform"
+
   if [ "$#" -lt 1 ]; then
     echo "in: ${target_dir}/${_drb_impl_file}"
     echo "error: drb_copy_variables_from takes at least 1 arguments: \"target\""
@@ -21,20 +23,29 @@ drb_copy_variables_from ()
   fi
   base_tgt="$1"
   _base_codename="$(_lookup_codename "$base_tgt")"
+# echo "_base_codename=$_base_codename"
   shift
   if [ "$1" ]; then
     base_vars="$*"
   else
-    base_vars="$(eval "echo \"\$vars_${_base_codename}\"")"
+    base_vars="$_drb_api_vars $(eval "echo \"\$vars_${_base_codename}\"")"
   fi
 
   for v in $base_vars; do
-    vars="$vars $v" # add to our 'vars' variable
-    eval "$v=\$v_${_base_codename}"
+    # [ "$v" = "codename" ] && echo "FFFFFFFFF" && continue
+    [ "$v" = "codename" ] && continue
+    # vars="$vars $v" # add to our 'vars' variable
+
+# eval "echo \"$v=\$${v}_${_base_codename}\""
+# echo eval "echo \"$v=\$${v}_${_base_codename}\""
+# $v="$(eval "echo \"\$${v}_${_base_codename}\"")"
+
+    eval "${v}_${_drb_runtime_platform}=\"$(echo \"\$${v}_${_base_codename}\")\""
+# eval "echo \"${v}_${_drb_runtime_platform}=\$$v\""
   done
 }
 
-drb_copy_functions_from ()
+drb_copy_funcs_from ()
 {
   if [ "$#" -lt 1 ]; then
     echo "in: ${target_dir}/${_drb_impl_file}"
@@ -45,25 +56,23 @@ drb_copy_functions_from ()
   _base_codename="$(_lookup_codename "$base_tgt")"
 
   shift
+# ! doesnt seem to work - needs checking
   if [ "$1" ]; then
+# echo one base_funcs="$*"
     base_funcs="$*"
   else
+# echo two base_funcs="$_drb_api_cmds $(eval "echo \"\$funcs_${_base_codename}\"")"
     base_funcs="$_drb_api_cmds $(eval "echo \"\$funcs_${_base_codename}\"")"
   fi
 
   for api_func in $base_funcs; do
+# echo _copy_function "${api_func}_${_base_codename}" "$api_func"
     _copy_function "${api_func}_${_base_codename}" "$api_func"
+# echo $?
+# ! add it to funcs variable if missing AND not in default API funcs
+    # echo "$funcs" | grep
+
   done
-}
-
-drb_copy_vars_from ()
-{
-  drb_copy_variables_from "$@"
-}
-
-drb_copy_funcs_from ()
-{
-  drb_copy_functions_from "$@"
 }
 
 fetch ()

@@ -12,7 +12,19 @@ _drb_target_depends_file="target.depends"
 _drb_target_not_visible_file="hidden"
 _drb_platform_generic="drb_platform_generic"
 _drb_impl_file="target.sh"
-_drb_api_vars="codename platforms apt_depends src_dir build_dir out_dir vars funcs"
+_drb_api_vars="codename apt_depends src_dir build_dir out_dir vars funcs"
+_drb_pre_cmd_stages="pre"
+_drb_on_stage_generic="drb_on_stage_generic"
+_drb_on_cmd_stage="on"
+_drb_on_cmd_stages="$_drb_on_stage_generic $_drb_on_cmd_stage"
+_drb_post_cmd_stages="post"
+_drb_cmd_stages="$_drb_pre_cmd_stages $_drb_on_cmd_stages $_drb_post_cmd_stages"
+_drb_clean_stage="drb_clean_stage"
+_drb_clean_complete_stage="drb_clean_complete_stage"
+_drb_clean_stages="$_drb_pre_cmd_stages $_drb_on_cmd_stages $_drb_clean_stage $_drb_post_cmd_stages $_drb_clean_complete_stage"
+_drb_distclean_stage="drb_distclean_stage"
+_drb_distclean_complete_stage="drb_distclean_complete_stage"
+_drb_distclean_stages="$_drb_pre_cmd_stages $_drb_on_cmd_stages $_drb_distclean_stage $_drb_post_cmd_stages $_drb_distclean_complete_stage"
 _drb_common_cmds="fetch
 sync
 build
@@ -20,13 +32,25 @@ assemble
 clean
 distclean"
 _drb_supported_cmds="targets
+info
 configure
 select
 depends
 $_drb_common_cmds"
-_drb_api_cmds="apt_depends
-setup
+_drb_api_cmds="setup
 $_drb_common_cmds"
+_drb_api_cmds_expanded ()
+{
+  for cmd in $_drb_api_cmds; do
+    printf " $cmd"
+    for s in $_drb_pre_cmd_stages $_drb_on_cmd_stage $_drb_post_cmd_stages; do
+      _drb_api_cmds_expanded="$_drb_api_cmds_expanded $cmd"
+       printf " ${s}_${cmd}"
+    done
+  done
+  printf "\n"
+}
+_drb_api_cmds_expanded="$(_drb_api_cmds_expanded)"
 
 # Source include files
 . "${_drb_include}/config"
@@ -82,10 +106,6 @@ EOF
 
 _drb_parse_args ()
 {
-  # known_platforms="c1 u3 xu3 $drb_extra_platforms"
-  # known_platforms="c1 u3 xu3 $drb_additional_platforms"
-  known_platforms="c1 u3 xu3 $drb_other_platforms"
-
   _parse_cmds=true
 
   if [ "$#" -lt "1" ]; then
@@ -141,6 +161,9 @@ _drb_parse_args ()
             _platforms="$_platforms $arg"
           else
             unset _parse_platforms
+            # ! if no platforms, set as $drb_default_platforms
+            # echo "$_platforms" | grep -v -e '^[[:space:]]*$'
+            [ "$_platforms" ] || _platforms="$drb_default_platforms"
             _parse_targets=true
           fi
         fi
