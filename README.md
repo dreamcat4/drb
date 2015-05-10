@@ -133,11 +133,11 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 ### Todo
 
+* check that configure target copies the correct config + ${p} file(s)
 * implement target info - information about a target
-* target config loading issue (picking up first find matched ${p} indiscriminately)
-* check that configure target re-opens the editor for each subsequent ${p} file
-* write documentation of target developer's API (functions)
-* implement default-targets for c1
+
+* write example to show target developers how to use API (functions)
+* create new 'c1-targets' repo to implement common targets for the c1
 
 ### Usage
 

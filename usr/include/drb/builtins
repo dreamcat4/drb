@@ -110,13 +110,22 @@ _configure_target ()
 
   if [ ! -e "$user_conf_file" ]; then
     unset conf_found
+
+# ! does not work for generic configs, and may pick up wrong tgt_p* configs
+
     for p in $plats; do
 
       echo "$configured_target_dirs" | grep -q -x "$target_dir" && continue
       _target_dir_for "$this_tgt" "$p" > /dev/null
 
-      # ! does not match against config.${p}, may pick up other platform
+# ! does not match against config.${p}, may pick up other platform
       tgt_conf_file="$(find "$target_dir" -type f -regex ".*/config.*" | head -1)"
+
+# hmmm. we need to:
+# * find generic config for generic target
+# * find generic config for this platform
+# * find target  config for this platform
+
       if [ "$tgt_conf_file" ]; then
         cp "$tgt_conf_file" "$user_conf_file"
         conf_found=true
