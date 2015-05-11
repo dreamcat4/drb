@@ -133,7 +133,6 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 ### Todo
 
-* check that configure target copies the correct config + ${p} file(s)
 * implement target info - information about a target
 
 * write example to show target developers how to use API (functions)

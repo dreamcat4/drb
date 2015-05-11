@@ -221,7 +221,7 @@ _run_cmds ()
           continue
         ;;
         configure)
-          _configure_target "$tgt"
+          _configure_target "$tgt" "$_platforms"
           continue
         ;;
         info)
@@ -229,11 +229,11 @@ _run_cmds ()
           continue
         ;;
         clean)
-          _clean_target "$tgt"
+          _clean_target "$tgt" "$_platforms"
           continue
         ;;
         distclean)
-          _distclean_target "$tgt"
+          _distclean_target "$tgt" "$_platforms"
           continue
         ;;
       esac

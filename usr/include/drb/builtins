@@ -102,49 +102,69 @@ _list_targets ()
   fi
 }
 
+_set_unset_dot_a_vars ()
+{
+  if [ "$a" = "$_drb_platform_generic" ]; then
+    unset _a dot_a edot_a
+  else
+    _a="_${a}"
+    dot_a=".${a}"
+    edot_a="\.${a}"
+  fi
+
+  retval=0
+}
+
 _configure_target ()
 {
-  this_tgt="$(_real_target "$1")"
-  conf_found=true
-  user_conf_file="${drb_conf_root}/config/${this_tgt}.config"
+  local tgt="$1"
+  local plats="$2"
+  local conf_found
 
-  if [ ! -e "$user_conf_file" ]; then
-    unset conf_found
+  # part 1
+  _ensure_plats_push_codename;
 
-# ! does not work for generic configs, and may pick up wrong tgt_p* configs
+  local p
+  for p in $plats; do
+    _set_unset_p
 
-    for p in $plats; do
+    # part 2
+    _real_target_for "$tgt" "$p" > /dev/null
+    tgt="$real_target"
 
-      echo "$configured_target_dirs" | grep -q -x "$target_dir" && continue
-      _target_dir_for "$this_tgt" "$p" > /dev/null
+    _target_dir_for "$tgt" "$p" > /dev/null
+    [ "$target_dir" ] || continue
 
-# ! does not match against config.${p}, may pick up other platform
-      tgt_conf_file="$(find "$target_dir" -type f -regex ".*/config.*" | head -1)"
+    as="$_drb_platform_generic"
+    [ "$p" != "$_drb_platform_generic" ] && as="$as $p"
 
-# hmmm. we need to:
-# * find generic config for generic target
-# * find generic config for this platform
-# * find target  config for this platform
+    for a in $as; do
+      local codename
+      _set_unset_dot_a_vars;
 
-      if [ "$tgt_conf_file" ]; then
-        cp "$tgt_conf_file" "$user_conf_file"
-        conf_found=true
-        break
+      user_conf_file="${drb_conf_root}/config/${tgt}${dot_a}.config"
+      echo "$configured_conf_files" | grep -q -x "$user_conf_file" && continue
+
+      if [ ! -e "$user_conf_file" ]; then
+        unset conf_found
+        tgt_conf_file="$(find "$target_dir" -type f -regex ".*/config${dot_a}.*" | head -1)"
+        if [ "$tgt_conf_file" ]; then
+          cp "$tgt_conf_file" "$user_conf_file"
+          conf_found=true
+          configured_conf_files="$configured_conf_files
+$user_conf_file"
+
+          if [ "$drb_editor" ]; then
+            echo "opening \"$user_conf_file\""
+            $drb_editor "$user_conf_file"
+          fi
+        fi
       fi
-
-      configured_target_dirs="$configured_target_dirs
-$target_dir"
     done
-  fi
+  done
 
   if [ ! "$conf_found" ]; then
-    echo "no config found for target \"$this_tgt\". skipping configuration."
-    exit 1
-  fi
-
-  if [ "$drb_editor" ]; then
-    echo "opening \"$user_conf_file\""
-    $drb_editor "$user_conf_file"
+    echo "no config found for target \"$tgt\". skipping configuration."
   fi
 }
 

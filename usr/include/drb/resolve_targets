@@ -154,7 +154,7 @@ _find_targets_recurse ()
   # push stack
   _old_tgt_dirs="$tgt_dir $_old_tgt_dirs"
 
-  plats_file="${tgt_dir}/${_drb_known_plats_file}"
+  plats_file="${tgt_dir}/${_drb_new_plats_file}"
   if [ -f "$plats_file" ]; then
     found_platforms="$found_platforms
 $(cat "$plats_file")"
