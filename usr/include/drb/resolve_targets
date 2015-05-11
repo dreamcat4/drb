@@ -412,7 +412,7 @@ _load_target ()
       unset $(echo $funcs $_drb_api_cmds_expanded | sed -e "s/ \|$/_${p} /g")
     fi
 
-    _drb_runtime_platform="$p" # this is for "api/drb_copy_vars_from"
+    platform="$p" # this is for "api/drb_copy_vars_from"
 
     _load_config_for "$tgt" "$p"
     . "$impl_file"

@@ -14,6 +14,9 @@ drb_run ()
 
 drb_copy_vars_from ()
 {
+# ! we aught to support :p from platform copies (e.g. generic, + platform-generic, + c1)
+# AND to $platform (where $platform is the current context's platform)
+
   # check if "$1:platform"
 
   if [ "$#" -lt 1 ]; then
@@ -47,6 +50,9 @@ drb_copy_vars_from ()
 
 drb_copy_funcs_from ()
 {
+# ! we aught to support :p from platform copies (e.g. generic, + platform-generic, + c1)
+# AND to $platform (where $platform is the current context's platform)
+
   if [ "$#" -lt 1 ]; then
     echo "in: ${target_dir}/${_drb_impl_file}"
     echo "error: drb_copy_functions_from takes at least 1 arguments: \"target\""
@@ -56,22 +62,20 @@ drb_copy_funcs_from ()
   _base_codename="$(_lookup_codename "$base_tgt")"
 
   shift
-# ! doesnt seem to work - needs checking
   if [ "$1" ]; then
-# echo one base_funcs="$*"
     base_funcs="$*"
   else
-# echo two base_funcs="$_drb_api_cmds $(eval "echo \"\$funcs_${_base_codename}\"")"
-    base_funcs="$_drb_api_cmds $(eval "echo \"\$funcs_${_base_codename}\"")"
+    base_funcs="$_drb_api_cmds_expanded
+$(eval "echo \"\$funcs_${_base_codename}\"")"
   fi
 
-  for api_func in $base_funcs; do
-# echo _copy_function "${api_func}_${_base_codename}" "$api_func"
-    _copy_function "${api_func}_${_base_codename}" "$api_func"
-# echo $?
-# ! add it to funcs variable if missing AND not in default API funcs
-    # echo "$funcs" | grep
+  for func in $base_funcs; do
+    _copy_function "${func}_${_base_codename}" "$func"
+  done
 
+  base_user_funcs="$(echo "$base_funcs" | grep -v -x -F "$_drb_api_cmds_expanded")"
+  for user_func in $base_user_funcs; do
+    echo "$funcs" | grep -q "$user_func" || funcs="$funcs $user_func"
   done
 }
 

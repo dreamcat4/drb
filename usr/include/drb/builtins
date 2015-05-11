@@ -223,7 +223,7 @@ _target_info ()
 
     echo
     printf "  functions:\n"
-    for api_func in $_drb_api_cmds $funcs; do
+    for api_func in $_drb_api_cmds_expanded $funcs; do
       func="$(eval "command -v \"${api_func}_${codename}${_p}\"")"
       [ "$func" ] && printf "%19s\n" "${func%_${codename}${_p}}"
       # [ "$func" ] && declare -f "$func"
