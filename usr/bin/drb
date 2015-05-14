@@ -3,7 +3,7 @@ __this_file="$(realpath -q "$0")"
 __this_dir="$(dirname "$__this_file")"
 
 # immutable globals
-_drb_version="0.01 pre-alpha"
+_drb_version="0.20 beta"
 _drb_root="$(realpath "${__this_dir}/../..")"
 _drb_include="${_drb_root}/usr/include/drb"
 _drb_known_plats_file=".known.platforms"
