@@ -54,7 +54,8 @@ _set_unset_a_vars ()
   tgt="$real_target"
 
   _lookup_codename_for "$tgt" "$p" > /dev/null
-  unset $vars $funcs $_drb_api_vars $_drb_api_cmds
+  unset $vars $_drb_api_vars
+  unset $funcs $_drb_api_cmds_expanded
 
   if [ "$a" = "$_drb_platform_generic" ]; then
     unset _a

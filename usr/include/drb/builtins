@@ -170,7 +170,8 @@ $user_conf_file"
 
 _target_info ()
 {
-  unset $vars $funcs $_drb_api_vars $_drb_api_cmds
+  unset $vars $_drb_api_vars
+  unset $funcs $_drb_api_cmds_expanded
   tgt="$1"
   tgt="$(_soft_expand_target "$tgt")"
   _lookup_platforms "$tgt" > /dev/null
@@ -223,6 +224,7 @@ _target_info ()
 
     echo
     printf "  functions:\n"
+    funcs="$(eval "echo \"\$funcs_${codename}${_p}\"")"
     for api_func in $_drb_api_cmds_expanded $funcs; do
       func="$(eval "command -v \"${api_func}_${codename}${_p}\"")"
       [ "$func" ] && printf "%19s\n" "${func%_${codename}${_p}}"
@@ -231,6 +233,7 @@ _target_info ()
 
     echo
     printf "       vars:\n"
+    vars="$(eval "echo \"\$vars_${codename}${_p}\"")"
     for var in $_drb_api_vars $vars; do
       printf "%19s" "$var"
       var="$(eval "echo \"${var}_${codename}${_p}\"")"
