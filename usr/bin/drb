@@ -13,8 +13,7 @@ _drb_target_depends_file="target.depends"
 _drb_target_not_visible_file="hidden"
 _drb_platform_generic="drb_platform_generic"
 _drb_impl_file="target.sh"
-_drb_api_copy_vars="apt
-depends
+_drb_api_copy_vars="apt_depends
 src_dir
 build_dir
 out_dir
@@ -74,42 +73,43 @@ _drb_cat_help ()
   cat <<- "EOF"
 
  drb:
-      Dreamcat\'s builder. A simple shell-based build tool.
-      'man drb' for more help / information.
+      Dreamcats build tool. A simple shell-based framework.
+      Visit: https://github.com/dreamcat4/drb for help guide.
 
  Usage:
       $ drb <cmds> [platforms] [--] [targets]
 
  Commands:
-
       targets    - List available build targets
-      configure  - Make user copy of target config & open in editor.
-      !info       - Show metadata info about specific targets
+      configure  - Make user copy of target config & open in editor
+      info       - Show metadata info about specific targets
       select     - Set a build alias to point to a different target
-      depends    - Check depenancies. Install missing packages.
-      fetch      - Download source code/files needed to build the target
-      sync       - Update fetched source code to the latest version
-      build      - Compile/make all intermediate build-time files
-      assemble   - Create the final build product output files
+      depends    - Check target depenancies
+
+ Build Stages:
+      fetch      - Download all source code needed to build the target
+      sync       - Update the target source code to its latest version
+      build      - Compile/make all build-time and intermediate files
+      assemble   - Create the final build product and output files
       clean      - Remove build files
-      distclean  - Remove build files + src files
+      distclean  - Remove build files and src files
 
  Platforms:
-      Hardware platform(s) you wish to build targets for.
-      Targets you build must include support for those platform(s).
-      e.g. 'c1', 'u3', 'xu3' etc. Not all targets support all platforms.
+      The hardware platform(s) you wish to build targets for.
+      Targets you build must be written to support those platform(s).
+      e.g. 'c1', 'rpi', 'beaglebone', etc.
 
- Targets:
-
-      -x,--debug     - Print full command trace with set -x
+ Options:
+      -x,--debug     - Print command trace of targets
+      -X,--trace     - Print command trace of drb program
       -v,--version   - Print the current version of drb and exit.
       -h,--help      - Display this message and exit.
 
 EOF
 
-  echo " Version:"
-  printf "      "
-  echo "$_drb_version"
+  printf " Version:\n"
+  printf "      $_drb_version\n"
+  echo
 }
 
 
@@ -138,17 +138,16 @@ _drb_parse_args ()
       ;;
 
       -x|--debug)
+        drb_debug=true
+      ;;
+
+      -X|--trace)
         set -x
       ;;
 
       --)
         unset _parse_cmds
         unset _parse_platforms
-      ;;
-
-      --echo)
-        _cmd_echo=true
-        break
       ;;
 
       -p|--platforms)
@@ -193,19 +192,10 @@ _drb_main ()
   _drb_load_platforms;
   _drb_load_global_config;
   _drb_ensure_default_config;
-  _drb_parse_args "$@" # Y
-  _resolve_targets "$_tgts"; # Y
-
-  if [ "$_cmd_echo" ]; then
-    eval "echo \"\$$arg\""
-    exit 0
-  fi
-
-  _run_cmds "$_cmds"; # Y
+  _drb_parse_args "$@";
+  _resolve_targets "$_tgts";
+  _run_cmds "$_cmds";
 }
-
-# Pass the command through our wrapper function
 _drb_main "$@"
-exit "$?"
 
 

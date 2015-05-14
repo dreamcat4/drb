@@ -41,10 +41,9 @@ _set_unset_s ()
 _set_unset_p ()
 {
   if [ "$p" = "$_drb_platform_generic" ]; then
-    unset _p p_
+    unset _p
   else
     _p="_${p}"
-    # p_="${p}_"
   fi
 }
 
@@ -68,13 +67,13 @@ _set_unset_a_vars ()
 
 _reload_vars_inner ()
 {
-# set -x
-  for var in $_drb_api_vars; do
+  eval "vars=\"\$vars${_b}_${codename}${_p}\""
+  for var in $_drb_api_vars $vars; do
     eval "${var}${_b}=\"\$${var}${_b}_${codename}${_p}\""
   done
-# set +x
 
-  for func in $_drb_api_cmds $funcs; do
+  eval "funcs=\"\$funcs${_b}_${codename}${_p}\""
+  for func in $_drb_api_cmds_expanded $funcs; do
     _copy_function "${func}${_b}_${codename}${_p}" "${func}${_b}"
   done
 }
@@ -129,18 +128,18 @@ _run_cmd ()
 
         # part 3
         if [ -e "${drb_builder_root}/.completed/${s_}${cmd}${_a}.${tgt}${_p}" ]; then
-          # echo "skipping: ${s_}${cmd}${_a}.${tgt}${_p} - ${s_}${cmd}${_a}_${codename}${_p} - already completed."
+# echo "skipping: ${s_}${cmd}${_a}.${tgt}${_p} - ${s_}${cmd}${_a}_${codename}${_p} - already completed."
           continue
         fi
 
         if [ ! "$(eval "command -v ${s_}${cmd}${_a}_${codename}${_p}")" ]; then
-          # echo "skipping: ${s_}${cmd}${_a}.${tgt}${_p} - ${s_}${cmd}${_a}_${codename}${_p} - not implemented."
+# echo "skipping: ${s_}${cmd}${_a}.${tgt}${_p} - ${s_}${cmd}${_a}_${codename}${_p} - not implemented."
           touch "${drb_builder_root}/.completed/${s_}${cmd}${_a}.${tgt}${_p}"
           continue
         fi
 
         # part 4
-        echo "loading vars for - ${s_}${cmd}${_a}_${codename}${_p}";
+echo "loading vars for - ${s_}${cmd}${_a}_${codename}${_p}";
         _set_b_load_vars;
 
         # part 5
@@ -156,12 +155,16 @@ _run_cmd ()
             ;;
         esac
 
-echo this_dir="$src_dir"
         mkdir -p "$this_dir" && cd "$this_dir" || return 1
 echo "running - ${s_}${cmd}${_a}_${codename}${_p}";
+        target="$tgt"
+        platform="$p"
+        cwd="$this_dir"
+        [ "$drb_debug" ] && set -x
         eval "${s_}${cmd}${_a}_${codename}${_p}";
-echo "Done."
         retval="$?"
+        [ "$drb_debug" ] && set +x
+echo "Done."
 
         if [ "$retval" -eq 0 ]; then
           touch "${drb_builder_root}/.completed/${s_}${cmd}${_a}.${tgt}${_p}"
@@ -214,6 +217,10 @@ _run_cmds ()
         continue
       ;;
     esac
+
+    # drb global configuration
+    [ ! "$_tgts" ] && [ "$_cmd" = "configure" ] && _configure_target "drb"
+
     for tgt in $_tgts; do
       tgt="$(_hard_expand_target "$tgt")"
       case "$_cmd" in

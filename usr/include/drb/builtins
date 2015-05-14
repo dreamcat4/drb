@@ -70,8 +70,6 @@ _check_apt_depends ()
   tgt="$1"
   codename="$(_lookup_codename "$tgt")"
   apt_depends="$(eval "echo \$apt_depends_${codename}")"
-  # echo "target: $tgt"
-  # echo "apt_depends=$apt_depends"
   [ "$apt_depends" ] || return 0
   installed_pkgs=$(dpkg --get-selections | grep -e '.*[[:space:]]*install$' | sed -e 's/[[:space:]].*//g')
   missing_pkgs=$(echo "$apt_depends" | sed -e 's/\s\+/\n/g' | grep -v -x -F "$installed_pkgs")
@@ -123,21 +121,21 @@ _configure_target ()
 
   # part 1
   _ensure_plats_push_codename;
-
   local p
   for p in $plats; do
     _set_unset_p
 
     # part 2
-    _real_target_for "$tgt" "$p" > /dev/null
-    tgt="$real_target"
+    if [ "$tgt" != "drb" ]; then
+      _real_target_for "$tgt" "$p" > /dev/null
+      tgt="$real_target"
 
-    _target_dir_for "$tgt" "$p" > /dev/null
-    [ "$target_dir" ] || continue
+      _target_dir_for "$tgt" "$p" > /dev/null
+      [ "$target_dir" ] || continue
+    fi
 
     as="$_drb_platform_generic"
     [ "$p" != "$_drb_platform_generic" ] && as="$as $p"
-
     for a in $as; do
       local codename
       _set_unset_dot_a_vars;
@@ -150,14 +148,16 @@ _configure_target ()
         tgt_conf_file="$(find "$target_dir" -type f -regex ".*/config${dot_a}.*" | head -1)"
         if [ "$tgt_conf_file" ]; then
           cp "$tgt_conf_file" "$user_conf_file"
-          conf_found=true
           configured_conf_files="$configured_conf_files
 $user_conf_file"
+        fi
+      fi
 
-          if [ "$drb_editor" ]; then
-            echo "opening \"$user_conf_file\""
-            $drb_editor "$user_conf_file"
-          fi
+      if [ -e "$user_conf_file" ]; then
+        conf_found=true
+        if [ "$drb_editor" ]; then
+          echo "opening \"$user_conf_file\""
+          $drb_editor "$user_conf_file"
         fi
       fi
     done
@@ -175,29 +175,36 @@ _target_info ()
   tgt="$1"
   tgt="$(_soft_expand_target "$tgt")"
   _lookup_platforms "$tgt" > /dev/null
-# _lookup_platforms "$tgt"
 
   echo
   printf "target: \"$tgt\"\n"
-
   _target_dir "$tgt" > /dev/null
     _real_target "$tgt" > /dev/null
 
-  # [ -h "$target_dir" ] && printf "alias: true\n"
   [ -h "$target_dir" ] && printf "alias: true \"$tgt\" ---> $real_target\n"
+
+  if [ "$(echo $platforms | wc -w)" -gt 1 ]; then
+    printf "platforms: $platforms\n" | sed -e "s|$drb_platform_generic|n/a|g"
+  fi
+
   echo
-
-  echo "platforms: $platforms"
-
-  # for p in $platforms $_drb_platform_generic; do
   for p in $platforms; do
     _real_target_for "$tgt" "$p" > /dev/null
     tgt="$real_target"
     _target_dir_for "$tgt" "$p" > /dev/null
-
     codename="$(_lookup_codename_for "$tgt" "$p")"
-# echo "tgt: $tgt"
-# echo "codename: $codename"
+
+    printf "      descr:"
+    [ "$descr" ] && printf " $descr" || printf " n/a"
+    printf "\n"
+
+    printf "   platform: $p\n" | sed "s|$_drb_platform_generic|n/a|g"
+
+    if echo "$tgt" | grep -q -v "$_visible_targets"; then
+      printf "%18s\n" "hidden: true"
+    # else
+    #   printf "%18s\n" "hidden: false"
+    fi
 
     # ! reverse load vars inner
     if [ "$p" = "$_drb_platform_generic" ]; then
@@ -207,38 +214,31 @@ _target_info ()
       p_="${p}_"
     fi
 
-    if [ ! "$p" ]; then
-      up="${plats#$_drb_platform_generic}"
-      [ "$up" ] && printf "%15s\n" "platforms: $up"
-    else
-      printf "%15s\n" "for platform: $p"
-    fi
-
     printf "       path: $target_dir\n"
-
-    if echo "$tgt" | grep -q "$_visible_targets"; then
-      printf "%18s\n" "hidden: false"
-    else
-      printf "%18s\n" "hidden: true"
-    fi
+    printf "    version:"
+    [ "$version" ] && printf " $version" || printf " n/a"
+    printf "\n"
+    printf "     author:"
+    [ "$author" ] && printf " $author" || printf " n/a"
+    printf "\n"
 
     echo
-    printf "  functions:\n"
+    printf " functions:\n"
     funcs="$(eval "echo \"\$funcs_${codename}${_p}\"")"
     for api_func in $_drb_api_cmds_expanded $funcs; do
       func="$(eval "command -v \"${api_func}_${codename}${_p}\"")"
-      [ "$func" ] && printf "%19s\n" "${func%_${codename}${_p}}"
+      [ "$func" ] && printf "   ${func%_${codename}${_p}}\n"
       # [ "$func" ] && declare -f "$func"
     done
 
     echo
-    printf "       vars:\n"
+    printf " variables:\n"
     vars="$(eval "echo \"\$vars_${codename}${_p}\"")"
     for var in $_drb_api_vars $vars; do
-      printf "%19s" "$var"
+      printf "%19s" "$var:"
       var="$(eval "echo \"${var}_${codename}${_p}\"")"
       val="$(eval "echo \"\$${var}\"")"
-      [ "$val" ] && printf " = $val" || printf " = n/a"
+      [ "$val" ] && printf " $val" || printf " n/a"
       printf "\n"
     done
     echo
@@ -295,16 +295,20 @@ _clean_target ()
 
         # part 3
         if [ "$s" = "$_drb_clean_stage" ]; then
+          # [ "$drb_debug" ] && set -x
           _drb_clean_build_dirs "build out"
           retval="$?"
+          # [ "$drb_debug" ] && set +x
 
         elif [ "$s" = "$_drb_clean_complete_stage" ]; then
           _drb_remove_build_stamps "build assemble";
           retval="$?"
 
         elif [ "$(eval "command -v \"${s_}clean${_a}_${codename}${_p}\"")" ]; then
+          [ "$drb_debug" ] && set -x
           eval "${s_}clean${_a}_${codename}${_p}";
           retval="$?"
+          [ "$drb_debug" ] && set +x
         fi
 
         if [ $retval -ne 0 ]; then
@@ -343,16 +347,20 @@ _distclean_target ()
 
         # part 3
         if [ "$s" = "$_drb_distclean_stage" ]; then
+          # [ "$drb_debug" ] && set -x
           _drb_clean_build_dirs "src"
           retval="$?"
+          # [ "$drb_debug" ] && set +x
 
         elif [ "$s" = "$_drb_distclean_complete_stage" ]; then
           _drb_remove_build_stamps "fetch sync";
           retval="$?"
 
         elif [ "$(eval "command -v \"${s_}distclean${_a}_${codename}${_p}\"")" ]; then
+          [ "$drb_debug" ] && set -x
           eval "${s_}distclean${_a}_${codename}${_p}";
           retval="$?"
+          [ "$drb_debug" ] && set +x
         fi
 
         if [ $retval -ne 0 ]; then
@@ -363,7 +371,5 @@ _distclean_target ()
     done
   done
 }
-
-
 
 

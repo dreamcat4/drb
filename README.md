@@ -12,9 +12,8 @@
 - [Build targets](#build-targets)
 - [Installation](#installation)
 - [CmdLine Args](#cmdline-args)
-- [Todo](#todo)
 - [Usage](#usage)
-  - [Global Config](#global-config)
+  - [Configuration](#configuration)
   - [Downloading build targets](#downloading-build-targets)
   - [Writing a Build Target](#writing-a-build-target)
   - [Hacking a custom build, hacking as-you-go](#hacking-a-custom-build-hacking-as-you-go)
@@ -49,13 +48,13 @@ If you don't already need `drb`, or don't understand what it is for... then don'
 
 ### Requirements
 
-* Ubuntu 14.04 or higher
-* To use `drb` on other linux host distros, you should just run it inside of a docker image.
-* Build dependancies from 3rd party PPAs are not supported ATM.
+* Ubuntu 14.04 or higher.
 
-The only requirement of drb is that it should be run on an ubuntu host system. This simplifies the testing of build dependancies, when all targets are written and tested on ubuntu hosts. This choice makes for simplest management of build dependancies, relying upon `apt-get` tool.
+Else you can compile `drb` build targets on other linux host distros, if you install docker and run drb inside of a docker image.
 
-* If you do wish to port the drb tool to some non-linux platform, e.g. FreeBSD. Then you will need to modify the code around `apt_depends`.
+The only hard requirement of the drb tool itself is bash. However considering that almost all drb build targets are written and tested to be build on an x86 (intel based) ubuntu host system. Then that is what you should be using. As it greatly simplifies the assumptions of build dependancies etc, when all targets are written and tested on ubuntu hosts. This choice makes for simplest management of build dependancies, mostly just relying on the standard `apt-get` tool.
+
+If you do wish to write build targets for the drb tool on some other non-deb based platform, e.g. FreeBSD. Then you cannot specify your pkg dependancies drb's built-in `apt_depends` dependancy checking feature. You need to hard-code pkg dependancy checking and installation within your target's custom [pre_]setup() function(s), etc.
 
 ### Build targets
 
@@ -85,7 +84,7 @@ sudo mkdir -p /usr/local/bin
 sudo ln -s $PWD/usr/bin/drb /usr/local/bin/
 ```
 
-From my launchpad PPA: ! `.deb` pkg does not exist yet
+! Not implemented yet. From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 ```sh
 # ! sudo add-apt-repository -y dreamcat4:ppa
@@ -96,54 +95,56 @@ From my launchpad PPA: ! `.deb` pkg does not exist yet
 
 ```sh
  drb:
-      Dreamcat\'s builder. A simple shell-based build tool.
-      'man drb' for more help / information.
+      Dreamcats build tool. A simple shell-based framework.
+      Visit: https://github.com/dreamcat4/drb for help guide.
 
  Usage:
       $ drb <cmds> [platforms] [--] [targets]
 
  Commands:
-
       targets    - List available build targets
-      configure  - Make user copy of target config & open in editor.
-      !info       - Show metadata info about specific targets
+      configure  - Make user copy of target config & open in editor
+      info       - Show metadata info about specific targets
       select     - Set a build alias to point to a different target
-      depends    - Check depenancies. Install missing packages.
-      fetch      - Download source code/files needed to build the target
-      sync       - Update fetched source code to the latest version
-      build      - Compile/make all intermediate build-time files
-      assemble   - Create the final build product output files
+      depends    - Check target depenancies
+
+ Build Stages:
+      fetch      - Download all source code needed to build the target
+      sync       - Update the target source code to its latest version
+      build      - Compile/make all build-time and intermediate files
+      assemble   - Create the final build product and output files
       clean      - Remove build files
-      distclean  - Remove all build files + src files
+      distclean  - Remove build files and src files
 
  Platforms:
-      Hardware platform(s) you wish to build targets for.
-      Targets you build must include support for those platform(s).
-      e.g. 'c1', 'u3', 'xu3' etc. Not all targets support all platforms.
+      The hardware platform(s) you wish to build targets for.
+      Targets you build must be written to support those platform(s).
+      e.g. 'c1', 'rpi', 'beaglebone', etc.
 
- Targets:
-
-      -x,--debug     - Print full command trace with set -x
+ Options:
+      -x,--debug     - Print command trace of targets
+      -X,--trace     - Print command trace of drb program
       -v,--version   - Print the current version of drb and exit.
       -h,--help      - Display this message and exit.
 
  Version:
-      0.01 pre-alpha
+      0.20 beta
 ```
-
-### Todo
-
-* implement target info - information about a target
-
-* write example to show target developers how to use API (functions)
-* create new 'c1-targets' repo to implement common targets for the c1
 
 ### Usage
 
-#### Global Config
+#### Configuration
 
 ```sh
-EDITOR=cat drb configure drb
+# Show global configuration
+EDITOR=cat drb configure
+
+# Edit global configuration
+drb configure
+
+# Edit target configuration
+drb configure $target
+
 ```
 
 #### Downloading build targets
@@ -170,7 +171,7 @@ drb targets
 
 #### Writing a Build Target
 
-This will be documented in the online examlples.
+! not implemented yet. This will be documented in the online examlples.
 
 ```sh
 drb fetch examples

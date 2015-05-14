@@ -120,10 +120,7 @@ _lookup_codename ()
 _lookup_platforms ()
 {
   local this_tgt="$1"
-# !
-# echo "_targets_plats_codenames=$_targets_plats_codenames"
   platforms="$(echo "$_targets_plats_dirs" | grep -e "^${this_tgt}:.*" | cut -d':' -f2)"
-# echo platforms="$(echo "$_targets_plats_codenames" | grep -e "^${this_tgt}:.*" | cut -d':' -f2)"
   echo "$platforms"
 }
 
@@ -132,9 +129,6 @@ _lookup_codename_for ()
   local this_tgt="$1"
   local this_platform="$2"
   [ "$this_platform" ] || this_platform="$_drb_platform_generic"
-
-# echo "_targets_plats_codenames=$_targets_plats_codenames"
-  # echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:${this_platform}" | sed -e 's/^.*://g'
 
   if [ "$this_platform" = "$_drb_platform_generic" ]; then
     codename="$(echo "$_targets_plats_codenames" | grep --max-count=1 "${this_tgt}:" | sed -e 's/^.*://g')"
@@ -197,9 +191,6 @@ $_targets_dirs"
       _target_unique_for "$tgt" "$p" && \
         eval "_${this_plat}_targets=\"\$_${this_plat}_targets
 $tgt\""
-
-#       eval "_${this_plat}_targets_dirs=\"${tgt}:${tgt_dir}
-# \$_${this_plat}_targets_dirs\""
 
       _targets_plats_dirs="${tgt}:${p}:${tgt_dir}
 $_targets_plats_dirs"
@@ -284,15 +275,12 @@ _copy_function() {
 
 _load_tgt_depends ()
 {
-# set -x
   local this_tgt="$1"
   local d
   for d in $(_lookup_depends "$this_tgt"); do
     d="$(_soft_expand_target $d)"
-# echo _load_target "$d"
     _load_target "$d"
   done
-# set +x
 }
 
 _set_default_build_dirs ()
@@ -314,7 +302,6 @@ _set_default_build_dirs ()
 
 _run_staged_setup ()
 {
-# set -x
   for s in $_drb_pre_cmd_stages $_drb_on_cmd_stages $_drb_post_cmd_stages; do
     if [ "$s" = "$_drb_on_stage_generic" ]; then
       _soft_run_cmd "setup"
@@ -324,8 +311,6 @@ _run_staged_setup ()
       [ "$_a" ] && _soft_run_cmd "${s}_setup${_a}"
     fi
   done
-
-# set +x
 }
 
 _load_vars_inner ()
@@ -344,9 +329,7 @@ _load_vars_inner ()
   done
 
   for func in $funcs $_drb_api_cmds_expanded; do
-# echo _copy_function "${func}${_a}" "${func}${_a}_${codename}${_p}"
     _copy_function "${func}${_a}" "${func}${_a}_${codename}${_p}"
-# echo $?
   done
 }
 
@@ -358,24 +341,14 @@ _load_depends_filter_plats_generate_codename ()
   tgt="$real_target"
 
   _load_tgt_depends "$tgt"
-# echo two
   generated_codename="$(mktemp -u tgt_XXXXXX)"
 
-echo
-echo "load tgt=$tgt"
-
   local tp="$(_lookup_platforms "$tgt")"
-# echo "tp=^$tp$"
   [ "$tp" ] || tp="$_drb_platform_generic"
 
-# echo "tp=^$tp$"
   for mp in $run_plats $_drb_platform_generic; do
-# echo "mp=$mp"
     echo "$mp" | grep -q -x -F "$tp" && plats="$plats $mp"
-# echo echo "$mp" \| grep -q -x -F "$tp" \&\& plats="$plats $mp"
   done
-
-echo "plats=$plats"
 }
 
 _load_target ()
@@ -412,8 +385,8 @@ _load_target ()
       unset $(echo $funcs $_drb_api_cmds_expanded | sed -e "s/ \|$/_${p} /g")
     fi
 
-    platform="$p" # this is for "api/drb_copy_vars_from"
-
+    target="$tgt"
+    platform="$p"
     _load_config_for "$tgt" "$p"
     . "$impl_file"
 
@@ -426,24 +399,19 @@ $codename"
 $_targets_plats_codenames"
 
     if [ "$p" = "$_drb_platform_generic" ]; then
-      unset p _p p_
+      unset p _p
       unset _a
       # var --> var_codename
       _set_default_build_dirs
-echo one
       _run_staged_setup
       _load_vars_inner
     else
       unset _a
       _p="_${p}"
-      p_="${p}_"
       # var --> var_codename_p
-# set -x
       _set_default_build_dirs
-# set +x
       _a="_${p}"
       _set_default_build_dirs
-echo two
       _run_staged_setup
       unset _a
       _load_vars_inner
@@ -470,10 +438,6 @@ _load_targets ()
   for tgt in $tgts_to_load; do
     _load_target "$tgt"
   done
-
-  # for tgt in $dep_targets_to_load; do
-  #   _load_target "$tgt"
-  # done
 }
 
 _resolve_targets ()
@@ -489,10 +453,6 @@ _resolve_targets ()
 $tgt"
   done
 
-    # ! config not yet loaded, before setup. why?
   _load_targets "$tgts_resolved";
 }
-
-
-
 
