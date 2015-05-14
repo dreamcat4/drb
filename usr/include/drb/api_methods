@@ -26,26 +26,23 @@ drb_copy_vars_from ()
   fi
   base_tgt="$1"
   _base_codename="$(_lookup_codename "$base_tgt")"
-# echo "_base_codename=$_base_codename"
   shift
   if [ "$1" ]; then
     base_vars="$*"
   else
-    base_vars="$_drb_api_vars $(eval "echo \"\$vars_${_base_codename}\"")"
+    base_vars="$_drb_api_copy_vars
+$(eval "echo \"\$vars_${_base_codename}\"")"
   fi
 
-  for v in $base_vars; do
-    # [ "$v" = "codename" ] && echo "FFFFFFFFF" && continue
-    [ "$v" = "codename" ] && continue
-    # vars="$vars $v" # add to our 'vars' variable
-
-# eval "echo \"$v=\$${v}_${_base_codename}\""
-# echo eval "echo \"$v=\$${v}_${_base_codename}\""
-# $v="$(eval "echo \"\$${v}_${_base_codename}\"")"
-
-    eval "${v}_${_drb_runtime_platform}=\"$(echo \"\$${v}_${_base_codename}\")\""
-# eval "echo \"${v}_${_drb_runtime_platform}=\$$v\""
+  for var in $base_vars; do
+    eval "${var}_${platform}=\"$(echo \"\$${var}_${_base_codename}\")\""
   done
+
+  base_user_vars="$(echo "$base_vars" | grep -v -x -F "$_drb_api_vars")"
+  for user_var in $base_user_vars; do
+    echo "$vars" | grep -q "$user_var" || vars="$vars $user_var"
+  done
+  vars="${vars# }"
 }
 
 drb_copy_funcs_from ()
@@ -77,6 +74,7 @@ $(eval "echo \"\$funcs_${_base_codename}\"")"
   for user_func in $base_user_funcs; do
     echo "$funcs" | grep -q "$user_func" || funcs="$funcs $user_func"
   done
+  funcs="${funcs# }"
 }
 
 fetch ()

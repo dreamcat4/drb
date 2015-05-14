@@ -13,7 +13,15 @@ _drb_target_depends_file="target.depends"
 _drb_target_not_visible_file="hidden"
 _drb_platform_generic="drb_platform_generic"
 _drb_impl_file="target.sh"
-_drb_api_vars="codename apt_depends src_dir build_dir out_dir vars funcs"
+_drb_api_copy_vars="apt
+depends
+src_dir
+build_dir
+out_dir
+vars
+funcs"
+_drb_api_vars="codename
+$_drb_api_copy_vars"
 _drb_pre_cmd_stages="pre"
 _drb_on_stage_generic="drb_on_stage_generic"
 _drb_on_cmd_stage="on"
